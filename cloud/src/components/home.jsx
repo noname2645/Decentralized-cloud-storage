@@ -21,7 +21,7 @@ const pinFileToIPFS = async (file) => {
   formData.append("file", file);
 
   try {
-    console.log("📤 Uploading file to IPFS...");
+    console.log("Uploading file to IPFS...");
     const response = await axios.post(pinataUrl, formData, {
       headers: {
         "Content-Type": "multipart/form-data",
@@ -29,10 +29,10 @@ const pinFileToIPFS = async (file) => {
         pinata_secret_api_key: pinataConfig.pinataSecretApiKey,
       },
     });
-    console.log("✅ File uploaded to IPFS: ", response.data.IpfsHash);
+    console.log("File uploaded to IPFS: ", response.data.IpfsHash);
     return response.data.IpfsHash; // IPFS CID
   } catch (error) {
-    console.error("❌ Error uploading to Pinata:", error);
+    console.error("Error uploading to Pinata:", error);
     return null;
   }
 };
@@ -40,13 +40,13 @@ const pinFileToIPFS = async (file) => {
 // Function to upload the file's CID to the blockchain
 const uploadFileToBlockchain = async (fileCID, fileSize) => {
   try {
-    console.log("📡 Uploading CID to blockchain...");
+    console.log("Uploading CID to blockchain...");
     const tx = await contract.uploadFile(fileCID, fileSize);
-    console.log("📜 Transaction Hash:", tx.hash);
+    console.log("Transaction Hash:", tx.hash);
     await tx.wait();
-    console.log("✅ File uploaded to blockchain successfully!");
+    console.log("File uploaded to blockchain successfully!");
   } catch (error) {
-    console.error("❌ Error interacting with contract:", error);
+    console.error("Error interacting with contract:", error);
   }
 };
 
@@ -58,27 +58,27 @@ const Upload = () => {
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      alert("❗ Please select a file first.");
+      alert("Please select a file first.");
       return;
     }
 
     console.log("🔗 Connecting to blockchain...");
     try {
       await provider.getBlockNumber(); // Check blockchain connection
-      console.log("✅ Connected to blockchain");
+      console.log("Connected to blockchain");
     } catch (error) {
-      console.error("❌ Failed to connect to blockchain:", error);
+      console.error("Failed to connect to blockchain:", error);
       return;
     }
 
-    console.log("📤 Uploading file to IPFS...");
+    console.log("Uploading file to IPFS...");
     const fileCID = await pinFileToIPFS(selectedFile);
     if (!fileCID) {
       alert("❌ Failed to upload file to IPFS.");
       return;
     }
 
-    console.log("✅ File uploaded to IPFS:", fileCID);
+    console.log("File uploaded to IPFS:", fileCID);
 
     // Upload CID to blockchain
     await uploadFileToBlockchain(fileCID, selectedFile.size);
