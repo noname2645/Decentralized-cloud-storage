@@ -25,13 +25,13 @@ body{
     max-width: 350px;
     padding: 20px;
     border-radius: 20px;
-    position: relative;
+    position: absolute; /* Change to absolute */
     background-color: #1a1a1a;
     color: #fff;
     border: 1px solid #333;
-    margin-left: auto;
-    margin-right: auto;
-    margin-top: 80px;
+    top: 50%; /* Move the form to the center vertically */
+    left: 50%; /* Move the form to the center horizontally */
+    transform: translate(-50%, -50%); /* Perfect centering */
 }
 
 /* Title Style */
@@ -133,6 +133,7 @@ body{
     width: 60%;
     letter-spacing: 2px;
     font-weight: bold;
+    text-align: center;
 }
 
 .submit:hover {
@@ -168,7 +169,7 @@ body{
 .gimg {
     height: 40px;
     width: 40px;
-    margin-left: 45px;
+    margin-left: 25px;
     background: transparent;
 }
 
@@ -176,6 +177,7 @@ body{
     letter-spacing: 1px;
     background: transparent;
     font-size: 18px;
+    text-align: center;
 }
 
 /* Pulse Animation */

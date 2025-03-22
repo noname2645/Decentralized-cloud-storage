@@ -1,5 +1,5 @@
-const mycontract = artifacts.require("mycontract");
+const PinataStorage = artifacts.require("PinataStorage");
 
 module.exports=function(deployer) {
-    deployer.deploy(mycontract,"Hello blockchain");
+    deployer.deploy(PinataStorage,"Hello blockchain");
 };
