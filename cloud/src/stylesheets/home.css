@@ -117,3 +117,51 @@ h1 {
       margin-top: 10px;
   }
 }
+
+.home-container {
+  display: flex;
+  height: 100vh;
+  background-color: #121212;
+  color: white;
+}
+
+.sidebar {
+  width: 250px;
+  background: #1e1e1e;
+  padding: 20px;
+}
+
+.main-content {
+  flex: 1;
+  padding: 20px;
+}
+
+.upload-container {
+  background: #1e1e1e;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.upload-container button {
+  background: #6200ea;
+  color: white;
+  border: none;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.file-list {
+  background: #1e1e1e;
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.file-list ul {
+  list-style: none;
+  padding: 0;
+}
+
+.file-list li {
+  margin: 5px 0;
+}
