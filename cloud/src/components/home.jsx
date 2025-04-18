@@ -218,7 +218,7 @@ const Home = () => {
       <div ref={mountRef} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: -1, pointerEvents: 'none' }}></div>
       <div className="hello">
         <h2 className="welcome-text">
-          Welcome <span style={{ color: "#ffa500" }}>{user ? user.email : "Guest"}</span>
+          Welcome <span style={{ color: "#ffa500" }}>{user ? user.email : ""}</span>
         </h2>
 
         <button onClick={handleFileSelect} disabled={loading} className="upload-btn">
