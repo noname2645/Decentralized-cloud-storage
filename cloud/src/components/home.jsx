@@ -1,4 +1,4 @@
-// Home.js (Updated to fetch files from Pinata directly)
+// Home.js
 
 import React, { useEffect, useRef, useState } from "react";
 import { ethers } from "ethers";
@@ -19,6 +19,7 @@ const Home = () => {
   const mountRef = useRef(null);
   const [hoveredIndex, setHoveredIndex] = useState(null);
 
+  // 3D Background Setup
   useEffect(() => {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#020210");
@@ -81,15 +82,16 @@ const Home = () => {
     };
   }, []);
 
+  // Auth Check
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser) fetchPinnedFilesFromPinata();
+      if (currentUser) fetchPinnedFilesFromPinata(currentUser.uid);
     });
     return () => unsubscribe();
   }, []);
 
-  const fetchPinnedFilesFromPinata = async () => {
+  const fetchPinnedFilesFromPinata = async (userId) => {
     try {
       const res = await axios.get("https://api.pinata.cloud/data/pinList", {
         headers: {
@@ -98,13 +100,17 @@ const Home = () => {
         },
         params: {
           status: "pinned",
-          pageLimit: 50,
+          pageLimit: 100,
         },
       });
 
-      const files = res.data.rows.map(file => ({
+      const filtered = res.data.rows.filter(
+        (file) => file.metadata?.keyvalues?.userId === userId
+      );
+
+      const files = filtered.map((file) => ({
         fileCID: file.ipfs_pin_hash,
-        type: file.metadata?.keyvalues?.type || "image/jpeg" // assuming fallback
+        type: file.metadata?.keyvalues?.type || "image/jpeg"
       }));
       setFiles(files);
     } catch (err) {
@@ -140,6 +146,16 @@ const Home = () => {
     const formData = new FormData();
     formData.append("file", file);
 
+    const metadata = JSON.stringify({
+      name: file.name,
+      keyvalues: {
+        userId: user.uid,
+        type: file.type || "image/jpeg",
+      },
+    });
+
+    formData.append("pinataMetadata", metadata);
+
     try {
       const response = await axios.post("https://api.pinata.cloud/pinning/pinFileToIPFS", formData, {
         headers: {
@@ -163,7 +179,7 @@ const Home = () => {
         timestamp: new Date(),
       });
 
-      fetchPinnedFilesFromPinata();
+      fetchPinnedFilesFromPinata(user.uid);
     } catch (error) {
       console.error("Upload failed:", error);
     }
