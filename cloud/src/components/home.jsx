@@ -1,4 +1,4 @@
-// Home.js (Updated to fetch files from Pinata directly)
+// Home.js (Updated to fetch files from Pinata directly and use CSS modules)
 
 import React, { useEffect, useRef, useState } from "react";
 import { ethers } from "ethers";
@@ -8,7 +8,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import axios from "axios";
 import { pinataConfig, contractAddress, contractABI } from "../config.js";
 import * as THREE from "three";
-import "../stylesheets/home.css";
+import styles from "../stylesheets/Home.module.css"; // Updated to use CSS modules
 
 const Home = () => {
   const [files, setFiles] = useState([]);
@@ -198,36 +198,36 @@ const Home = () => {
   };
 
   return (
-    <div className="app-wrapper">
+    <div className={styles.homeAppWrapper}>
       <div ref={mountRef} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: -1, pointerEvents: 'none' }}></div>
-      <div className="hello">
-        <h2 className="welcome-text">
+      <div className={styles.homeHello}>
+        <h2 className={styles.homeWelcomeText}>
           Welcome <span style={{ color: "#ffa500" }}>{user ? user.email : "Guest"}</span>
         </h2>
 
-        <button onClick={handleFileSelect} disabled={loading} className="upload-btn">
+        <button onClick={handleFileSelect} disabled={loading} className={styles.homeUploadBtn}>
           {loading ? "Uploading..." : "Upload File"}
         </button>
       </div>
 
-      <div className="files-grid">
+      <div className={styles.homeFilesGrid}>
         {files.map((file, index) =>
           file.type.startsWith("image/") && (
             <div
               key={index}
-              className="file-card"
+              className={styles.homeFileCard}
               onMouseEnter={() => setHoveredIndex(index)}
               onMouseLeave={() => setHoveredIndex(null)}
             >
               <img
                 src={`https://gateway.pinata.cloud/ipfs/${file.fileCID}`}
                 alt="Uploaded"
-                className="file-image"
+                className={styles.homeFileImage}
                 onClick={() => handleImageClick(file.fileCID)}
               />
               {hoveredIndex === index && (
                 <button
-                  className="delete-btn"
+                  className={styles.homeDeleteBtn}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDelete(file.fileCID);
@@ -242,12 +242,15 @@ const Home = () => {
       </div>
 
       {selectedImage && (
-        <div className={`overlay ${isOverlayVisible ? "show" : ""}`} onClick={closeImagePreview}>
-          <div className="enlarged-container" onClick={(e) => e.stopPropagation()}>
+        <div 
+          className={`${styles.homeOverlay} ${isOverlayVisible ? styles.show : ""}`} 
+          onClick={closeImagePreview}
+        >
+          <div className={styles.homeEnlargedContainer} onClick={(e) => e.stopPropagation()}>
             <img
               src={`https://gateway.pinata.cloud/ipfs/${selectedImage}`}
               alt="Enlarged"
-              className="enlarged-image"
+              className={styles.homeEnlargedImage}
             />
           </div>
         </div>

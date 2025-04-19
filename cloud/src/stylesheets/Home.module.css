@@ -1,5 +1,5 @@
-/* Reset and Base Styles */
-* {
+/* Reset and Base Styles - scoped to home components */
+.homeAppWrapper * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -13,14 +13,8 @@
   --overlay-bg: rgba(0, 0, 0, 0.2);
 }
 
-html, body {
-  width: 100%;
-  height: 100%;
-  font-family: Arial, sans-serif;
-}
-
 /* Layout */
-.app-wrapper {
+.homeAppWrapper {
   width: 100%;
   min-height: 100vh;
   display: flex;
@@ -29,7 +23,7 @@ html, body {
   padding: 2rem;
 }
 
-.hello {
+.homeHello {
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -42,13 +36,13 @@ html, body {
   text-align: center;
 }
 
-.welcome-text {
+.homeWelcomeText {
   font-size: 1.5rem;
   color: var(--text-light);
 }
 
 /* Form Elements */
-.file-input {
+.homeFileInput {
   margin: 0.625rem;
   padding: 0.5rem;
   border: none;
@@ -58,7 +52,7 @@ html, body {
   border-radius: 0.25rem;
 }
 
-.upload-btn {
+.homeUploadBtn {
   padding: 0.625rem 1.25rem;
   background: var(--primary-color);
   border: none;
@@ -68,12 +62,12 @@ html, body {
   border-radius: 0.25rem;
 }
 
-.upload-btn:hover {
+.homeUploadBtn:hover {
   background: var(--primary-hover);
 }
 
 /* Grid Layout */
-.files-grid {
+.homeFilesGrid {
   width: 100%;
   max-width: 1400px;
   margin: 2rem auto 0;
@@ -84,14 +78,14 @@ html, body {
 }
 
 /* File Cards */
-.file-card {
+.homeFileCard {
   position: relative;
   display: inline-block;
   margin: 10px;
   cursor: pointer;
 }
 
-.file-image {
+.homeFileImage {
   width: 200px;
   height: 200px;
   object-fit: cover;
@@ -100,11 +94,11 @@ html, body {
   transition: transform 0.2s;
 }
 
-.file-card:hover .file-image {
+.homeFileCard:hover .homeFileImage {
   transform: scale(1.02);
 }
 
-.delete-btn {
+.homeDeleteBtn {
   position: absolute;
   top: 8px;
   right: 8px;
@@ -125,11 +119,11 @@ html, body {
   transition: background 0.3s;
 }
 
-.delete-btn:hover {
+.homeDeleteBtn:hover {
   background: rgba(255, 0, 0, 1);
 }
 
-.file-card img {
+.homeFileCard img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -137,7 +131,7 @@ html, body {
 }
 
 /* Image Overlay */
-.overlay {
+.homeOverlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -150,65 +144,15 @@ html, body {
   z-index: 1000;
   opacity: 0;
   visibility: hidden;
-
 }
 
-.overlay.show {
+.homeOverlay.show {
   opacity: 1;
   visibility: visible;
   transition: all 2s ease-in-out;
 }
 
-.enlarged-container {
-  padding: 1rem;
-  border-radius: 0.625rem;
-  width: 90%;
-  max-width: 1200px;
-  height: 90vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transform: scale(0.5);
-}
-
-.overlay.show .enlarged-container {
-  transform: scale(1);
-}
-
-.enlarged-image {
-  max-width: 100%;
-  max-height: 100%;
-  border-radius: 0.625rem;
-  object-fit: contain;
-  transform: scale(1);
-}
-
-.overlay:not(.show) .enlarged-image {
-  transform: scale(0.5);
-}
-
-/* Media Queries */
-@media screen and (max-width: 768px) {
-  .app-wrapper {
-    padding: 1.5rem;
-  }
-
-  .hello {
-    width: 100%;
-    padding: 1.5rem;
-  }
-
-  .welcome-text {
-    font-size: 1.25rem;
-  }
-
-  .files-grid {
-    padding: 0 1.5rem;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  }
-}
-
-.enlarged-container {
+.homeEnlargedContainer {
   padding: 1rem;
   border-radius: 0.625rem;
   width: 90%;
@@ -221,11 +165,11 @@ html, body {
   transition: transform 0.5s ease-in-out; /* Smooth zoom */
 }
 
-.overlay.show .enlarged-container {
+.homeOverlay.show .homeEnlargedContainer {
   transform: scale(1);
 }
 
-.enlarged-image {
+.homeEnlargedImage {
   max-width: 100%;
   max-height: 100%;
   border-radius: 0.625rem;
@@ -234,43 +178,62 @@ html, body {
   transition: transform 0.5s ease-in-out; /* Smooth image scale */
 }
 
-.overlay.show .enlarged-image {
+.homeOverlay.show .homeEnlargedImage {
   transform: scale(1);
 }
 
 /* Add this if you want to prevent jump-back */
-.overlay:not(.show) .enlarged-container {
+.homeOverlay:not(.show) .homeEnlargedContainer {
   transform: scale(0.5);
   transition: transform 0.5s ease-in-out;
 }
 
-.overlay:not(.show) .enlarged-image {
+.homeOverlay:not(.show) .homeEnlargedImage {
   transform: scale(0.9);
   transition: transform 0.5s ease-in-out;
 }
 
+/* Media Queries */
+@media screen and (max-width: 768px) {
+  .homeAppWrapper {
+    padding: 1.5rem;
+  }
+
+  .homeHello {
+    width: 100%;
+    padding: 1.5rem;
+  }
+
+  .homeWelcomeText {
+    font-size: 1.25rem;
+  }
+
+  .homeFilesGrid {
+    padding: 0 1.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
 
 @media screen and (max-width: 480px) {
-  .app-wrapper {
+  .homeAppWrapper {
     padding: 1rem;
   }
 
-  .hello {
+  .homeHello {
     padding: 1rem;
     border-radius: 0.75rem;
   }
 
-  .welcome-text {
+  .homeWelcomeText {
     font-size: 1.1rem;
   }
 
-  .files-grid {
+  .homeFilesGrid {
     padding: 0 1rem;
     grid-template-columns: 1fr;
   }
 
-  .upload-btn {
+  .homeUploadBtn {
     padding: 0.5rem 1rem;
   }
 }
-
