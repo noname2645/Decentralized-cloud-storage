@@ -52,7 +52,6 @@ html, body {
   color: var(--text-light);
   cursor: pointer;
   border-radius: 0.25rem;
-  
 }
 
 .upload-btn {
@@ -103,6 +102,54 @@ html, body {
   object-fit: cover;
   display: block;
   border-radius: 12px;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modal-content {
+  position: relative;
+  width: 80%;
+  height: 90%;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.close-btn {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  background: #ff5e5e;
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  z-index: 10000;
+}
+
+
+.app-wrapper .files-grid .file-info img{
+  height: 25px;
+  width: 25px;
+  margin-left: 5px;
+}
+
+.app-wrapper .files-grid #file-name{
+  color: #39c9e0;
+  background: transparent;
 }
 
 .delete-btn {
@@ -184,7 +231,15 @@ html, body {
   transform: scale(1);
 }
 
-.overlay:not(.show) .enlarged-image {
+.enlarged-video {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 0.625rem;
+  object-fit: contain;
+  transform: scale(1);
+}
+
+.overlay:not(.show) .enlarged-image .enlarged-video {
   transform: scale(0.5);
 }
 

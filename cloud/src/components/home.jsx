@@ -9,6 +9,11 @@ import axios from "axios";
 import { pinataConfig, contractAddress, contractABI } from "../config.js";
 import * as THREE from "three";
 import "../stylesheets/home.css";
+import audio from "../assets/Images/audio.png";
+import jpeg from "../assets/Images/jpeg.png";
+import pdf from "../assets/Images/pdf.png";
+import jpg from "../assets/Images/jpg.png";
+import png from "../assets/Images/png-file.png";
 
 const Home = () => {
   const [files, setFiles] = useState([]);
@@ -18,6 +23,7 @@ const Home = () => {
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
   const mountRef = useRef(null);
   const [hoveredIndex, setHoveredIndex] = useState(null);
+  const [pdfModal, setPdfModal] = useState({ isOpen: false, cid: "" });
 
   // 3D Background Setup
   useEffect(() => {
@@ -110,8 +116,10 @@ const Home = () => {
 
       const files = filtered.map((file) => ({
         fileCID: file.ipfs_pin_hash,
-        type: file.metadata?.keyvalues?.type || "image/jpeg"
+        fileName: file.metadata?.keyvalues?.name || file.metadata?.name || file.file_name,  // better fallback
+        type: file.metadata?.keyvalues?.type || "unknown",
       }));
+
       setFiles(files);
     } catch (err) {
       console.error("Error fetching from Pinata:", err);
@@ -122,7 +130,7 @@ const Home = () => {
   const handleFileSelect = () => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = "image/*";
+    input.accept = "image/*,.pdf,video/mp4";
     input.className = "hidden-input";
 
     input.addEventListener("change", (e) => {
@@ -147,12 +155,14 @@ const Home = () => {
     formData.append("file", file);
 
     const metadata = JSON.stringify({
-      name: file.name,
+      name: file.name, // this sets the visible file name in Pinata
       keyvalues: {
         userId: user.uid,
-        type: file.type || "image/jpeg",
+        name: file.name,         // <- this makes sure you can access it in fetch
+        type: file.type || "unknown",
       },
     });
+
 
     formData.append("pinataMetadata", metadata);
 
@@ -187,8 +197,8 @@ const Home = () => {
     setLoading(false);
   };
 
-  const handleImageClick = (fileCID) => {
-    setSelectedImage(fileCID);
+  const handleImageClick = (fileCID, type) => {
+    setSelectedImage({ fileCID, type });
     setIsOverlayVisible(true);
   };
 
@@ -227,47 +237,125 @@ const Home = () => {
       </div>
 
       <div className="files-grid">
-        {files.map((file, index) =>
-          file.type.startsWith("image/") && (
-            <div
-              key={index}
-              className="file-card"
-              onMouseEnter={() => setHoveredIndex(index)}
-              onMouseLeave={() => setHoveredIndex(null)}
-            >
+        {files.map((file, index) => (
+          <div
+            key={index}
+            className="file-card"
+            onMouseEnter={() => setHoveredIndex(index)}
+            onMouseLeave={() => setHoveredIndex(null)}
+          >
+            {/* File Icon and Name */}
+            <div className="file-info">
+              {/* Show icon based on file type */}
+              {file.type.startsWith("image/png") ? (
+                <img src={png} alt="PNG"></img>
+              ) : file.type === "video/mp4" ? (
+                <img src={audio} alt="MP4"></img>
+              ) : file.type === "application/pdf" ? (
+                <img src={pdf} alt="PDF"></img>
+              ) : file.type.startsWith("image/jpeg") ? (
+                <img src={jpeg} alt="JPEG"></img>
+              ) : file.type.startsWith("image/jpg") ? (
+                <img src={jpg} alt="JPG"></img>
+              ) : (
+                <span role="img" aria-label="file">📁</span>
+              )}
+              <span id="file-name">
+                {file.fileName}
+              </span>
+
+            </div>
+
+            {/* Display file preview */}
+            {file.type.startsWith("image/") ? (
               <img
                 src={`https://gateway.pinata.cloud/ipfs/${file.fileCID}`}
                 alt="Uploaded"
                 className="file-image"
-                onClick={() => handleImageClick(file.fileCID)}
+                onClick={() => handleImageClick(file.fileCID, file.type)}
               />
-              {hoveredIndex === index && (
-                <button
-                  className="delete-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(file.fileCID);
-                  }}
+            ) : file.type === "video/mp4" ? (
+              <video
+                src={`https://gateway.pinata.cloud/ipfs/${file.fileCID}`}
+                muted
+                loop
+                autoPlay
+                playsInline
+                className="file-video"
+                onClick={() => handleImageClick(file.fileCID, file.type)}
+              />
+            ) : file.type === "application/pdf" ? (
+              <div className="pdf-preview">
+                <div
+                  className="pdf-thumbnail"
+                  onClick={() => setPdfModal({ isOpen: true, cid: file.fileCID })}
                 >
-                  ✕
-                </button>
-              )}
-            </div>
-          )
-        )}
+                  📄 <span className="underline cursor-pointer text-blue-500">Click to Preview PDF</span>
+                </div>
+            
+                {/* Fullscreen PDF Modal */}
+                {pdfModal.isOpen && pdfModal.cid === file.fileCID && (
+                  <div className="modal-overlay" onClick={() => setPdfModal({ isOpen: false, cid: "" })}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                      <embed
+                        src={`https://gateway.pinata.cloud/ipfs/${pdfModal.cid}`}
+                        type="application/pdf"
+                        width="100%"
+                        height="100%"
+                      />
+                      <button className="close-btn" onClick={() => setPdfModal({ isOpen: false, cid: "" })}>
+                        ✖ Close
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p>📁 Unsupported file type</p>
+            )}
+            
+
+            {/* Delete button on hover */}
+            {hoveredIndex === index && (
+              <button
+                className="delete-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(file.fileCID);
+                }}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        ))}
       </div>
+
 
       {selectedImage && (
         <div className={`overlay ${isOverlayVisible ? "show" : ""}`} onClick={closeImagePreview}>
           <div className="enlarged-container" onClick={(e) => e.stopPropagation()}>
-            <img
-              src={`https://gateway.pinata.cloud/ipfs/${selectedImage}`}
-              alt="Enlarged"
-              className="enlarged-image"
-            />
+            {selectedImage.type.startsWith("image/") ? (
+              <img
+                src={`https://gateway.pinata.cloud/ipfs/${selectedImage.fileCID}`}
+                alt="Enlarged"
+                className="enlarged-image"
+              />
+            ) : selectedImage.type === "video/mp4" ? (
+              <video
+                src={`https://gateway.pinata.cloud/ipfs/${selectedImage.fileCID}`}
+                controls
+                autoPlay
+                controlsList="nodownload"
+                className="enlarged-video"
+              />
+            ) : (
+              <p>Unsupported preview type</p>
+            )}
           </div>
         </div>
       )}
+
     </div>
   );
 };
