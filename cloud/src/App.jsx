@@ -3,20 +3,47 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import Home from './components/home';
 import Login from './components/login';
 import Register from './components/register';
+import DecentralizedCloudStorage from './components/LandingPage';
+import Features from './components/Features';
+import Aboutus from './components/AboutUs';
+import Casestudy from './components/CaseStudy';
+import Documentation from './components/Documentation';
+
+
 
 // Create a router with defined routes
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <Register />, // Register page for the root path
+    element: <DecentralizedCloudStorage />, 
+  },
+  {
+    path: "/register",
+    element: <Register />, 
   },
   {
     path: "/home",
-    element: <Home />, // Home page for the '/home' path
+    element: <Home />, 
   },
   {
     path: "/login",
-    element: <Login />, // Login page
+    element: <Login />, 
+  },
+  {
+    path: "/features",
+    element: <Features />, 
+  },
+  {
+    path: "/case",
+    element: <Casestudy />, 
+  },
+  {
+    path: "/aboutus",
+    element: <Aboutus />, 
+  },
+  {
+    path: "/doc",
+    element: <Documentation />, 
   }
 ]);
 

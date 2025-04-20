@@ -1,10 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {getAuth, createUserWithEmailAndPassword, sendEmailVerification, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, setPersistence, browserSessionPersistence} from 'firebase/auth';
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
+  setPersistence,
+  browserSessionPersistence,
+} from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
+import * as THREE from 'three';
 import { firebaseConfig } from '../config.js';
+import Google from '../assets/Images/google.png';
 import "../Stylesheets/register.css";
-import Google from "../assets/Images/google.png";
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -12,56 +22,48 @@ const auth = getAuth(app);
 
 const Register = () => {
   const navigate = useNavigate();
-  const [text, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [text, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState(null);
   const [isVerificationSent, setIsVerificationSent] = useState(false);
   const [isCheckingVerification, setIsCheckingVerification] = useState(false);
 
-  // Set session persistence inside useEffect
+  // 🔁 Setup session persistence
   useEffect(() => {
-    setPersistence(auth, browserSessionPersistence)
-      .then(() => console.log("Session persistence set"))
-      .catch((error) => console.error("Error setting persistence:", error));
-  }, []); 
+    setPersistence(auth, browserSessionPersistence).catch((error) =>
+      console.error('Error setting persistence:', error)
+    );
+  }, []);
 
-  // Handle Email SignUp
+  // ✅ Email Signup
   const handleEmailSignup = async (e) => {
     e.preventDefault();
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      console.log("Signed up successfully");
-
       await sendEmailVerification(userCredential.user);
-      console.log("Verification email sent!");
-
       setIsVerificationSent(true);
-      setIsCheckingVerification(true); // Start checking for verification
+      setIsCheckingVerification(true);
     } catch (error) {
       setErrorMessage(error.message);
     }
   };
 
-  // Function to check if email is verified
   const checkEmailVerification = async (user) => {
     if (user) {
-      await user.reload(); // Reload user to get updated email verification status
-      if (user.emailVerified) {
-        console.log("User is verified, redirecting...");
-        navigate("/home");
-      }
+      await user.reload();
+      if (user.emailVerified) navigate('/home');
     }
   };
 
-  // Check for email verification without requiring reload
+  // 🔄 Check verification state
   useEffect(() => {
     let interval;
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user && !user.emailVerified && isCheckingVerification) {
-        interval = setInterval(() => checkEmailVerification(user), 3000); // Check every 3 seconds
+        interval = setInterval(() => checkEmailVerification(user), 3000);
       } else if (user?.emailVerified) {
-        navigate("/home");
+        navigate('/home');
       }
     });
 
@@ -71,84 +73,177 @@ const Register = () => {
     };
   }, [navigate, isCheckingVerification]);
 
-  // Handle Google SignUp
+  // 🟢 Google Sign-In
   const handleGoogleSignup = async () => {
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
-
-      if (user.emailVerified) {
-        console.log("Google sign-in successful:", user);
-        navigate("/home");
-      } else {
-        console.log("Google account is not verified.");
-        setErrorMessage("Please verify your Google email before proceeding.");
-      }
+      if (user.emailVerified) navigate('/home');
+      else setErrorMessage('Please verify your Google email before proceeding.');
     } catch (error) {
       setErrorMessage(error.message);
     }
   };
 
+  // 🧠 Inject Three.js background when component mounts
+  useEffect(() => {
+    const container = document.getElementById('canvas-container');
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.z = 30;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    container.appendChild(renderer.domElement);
+
+    const particlesGeometry = new THREE.BufferGeometry();
+    const particleCount = 2000;
+    const posArray = new Float32Array(particleCount * 3);
+    const colorArray = new Float32Array(particleCount * 3);
+
+    for (let i = 0; i < particleCount * 3; i++) {
+      posArray[i] = (Math.random() - 0.5) * 100;
+      colorArray[i] = i % 3 === 0 ? Math.random() * 0.2 + 0.8 : i % 3 === 1 ? Math.random() * 0.5 : Math.random() * 0.8 + 0.2;
+    }
+
+    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+
+    const particlesMaterial = new THREE.PointsMaterial({
+      size: 0.2,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.8,
+      blending: THREE.AdditiveBlending,
+    });
+
+    const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+    scene.add(particlesMesh);
+
+    const lineGeometry = new THREE.BufferGeometry();
+    const linePosArray = new Float32Array(particleCount * 3 * 2);
+
+    for (let i = 0; i < particleCount * 3; i += 3) {
+      if (Math.random() > 0.95) {
+        const j = Math.floor(Math.random() * particleCount) * 3;
+        linePosArray[i * 2] = posArray[i];
+        linePosArray[i * 2 + 1] = posArray[i + 1];
+        linePosArray[i * 2 + 2] = posArray[i + 2];
+        linePosArray[i * 2 + 3] = posArray[j];
+        linePosArray[i * 2 + 4] = posArray[j + 1];
+        linePosArray[i * 2 + 5] = posArray[j + 2];
+      }
+    }
+
+    lineGeometry.setAttribute('position', new THREE.BufferAttribute(linePosArray, 3));
+
+    const lineMaterial = new THREE.LineBasicMaterial({
+      color: 0x00ffff,
+      transparent: true,
+      opacity: 0.3,
+    });
+
+    const linesMesh = new THREE.LineSegments(lineGeometry, lineMaterial);
+    scene.add(linesMesh);
+
+    function animate() {
+      requestAnimationFrame(animate);
+      particlesMesh.rotation.x += 0.0005;
+      particlesMesh.rotation.y += 0.001;
+      linesMesh.material.opacity = 0.2 + Math.sin(Date.now() * 0.001) * 0.1;
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    return () => {
+      container.removeChild(renderer.domElement);
+      renderer.dispose();
+    };
+  }, []);
+
   return (
-    <form className="form" onSubmit={handleEmailSignup}>
-      <p className="title">Register</p>
+    <>
+      <div
+        id="canvas-container"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: -1,
+          background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)',
+        }}
+      ></div>
 
-      <label>
-        <input
-          className="input"
-          type="text"
-          placeholder="Name"
-          required
-          value={text}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </label>
+      <div className="form-container">
+        <form className="register-form" onSubmit={handleEmailSignup}>
+          <p className="register-title">Register</p>
 
-      <label>
-        <input
-          className="input"
-          type="email"
-          placeholder="Email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-      </label>
+          <label>
+            <input
+              className="register-input"
+              type="text"
+              placeholder="Name"
+              required
+              value={text}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </label>
 
-      <label>
-        <input
-          className="input"
-          type="password"
-          placeholder="Password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </label>
+          <label>
+            <input
+              className="register-input"
+              type="email"
+              placeholder="Email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </label>
 
-      <button type="submit" className="submit">Register</button>
+          <label>
+            <input
+              className="register-input"
+              type="password"
+              placeholder="Password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </label>
 
-      {isVerificationSent && (
-        <div className="verification-message">
-          <p>Please check your email to verify your account.</p>
-        </div>
-      )}
+          <button type="submit" className="register-submit">Register</button>
 
-      {errorMessage && <p className="error">{errorMessage}</p>}
+          {isVerificationSent && (
+            <div className="verification-message">
+              <p>Please check your email to verify your account.</p>
+            </div>
+          )}
 
-      <p id="OR">OR USE THIS METHOD</p>
+          {errorMessage && <p className="register-error">{errorMessage}</p>}
 
-      <button
-        type="button"
-        onClick={handleGoogleSignup}
-        className="google-signup-btn">
-        <img className="gimg" src={Google} alt="Google icon" />
-        <p id="gtext">Sign Up with Google</p>
-      </button>
+          <p className="register-or">OR USE THIS METHOD</p>
 
-      <p className="signin">Already have an account? <a href="/login">Sign in</a></p>
-    </form>
+          <button type="button" onClick={handleGoogleSignup} className="register-google-btn">
+            <img className="register-gimg" src={Google} alt="Google icon" />
+            <p className="register-gtext">Sign Up with Google</p>
+          </button>
+
+          <p className="register-signin">Already have an account? <a href="/login">Sign in</a></p>
+        </form>
+      </div>
+    </>
   );
 };
 
