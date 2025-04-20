@@ -37,10 +37,11 @@ const DecentralizedCloudStorage = () => {
             <li><a href="/" className={styles.navLink}>Features</a></li>
             <li><a href="/" className={styles.navLink}>About</a></li>
             <li><a href="/" className={styles.navLink}>Docs</a></li>
-            <li><a href="/" className={styles.navLink}>Case Studies</a></li>
+
           </ul>
           <div className={styles.navButtons}>
-            <a href="/" className={`${styles.btn} ${styles.getStarted}`}>Get started</a>
+            <a href="/" className={`${styles.btn} ${styles.getStarted}`}>Register</a>
+            <a href="/" className={`${styles.btn} ${styles.getStarted}`}>Login</a>
           </div>
         </nav>
       </header>
@@ -53,7 +54,7 @@ const DecentralizedCloudStorage = () => {
             <a href="/" className={`${styles.btn} ${styles.primary}`}>Get started</a>
             <a href="/" className={`${styles.btn} ${styles.green}`}>Read docs</a>
             <a href="/" className={`${styles.btn} ${styles.pink}`}>Case Study</a>
-            <a href="/" className={`${styles.btn} ${styles.orange}`}>Assistance</a>
+          
           </div>
         </div>
         <div className={styles.heroImage}>

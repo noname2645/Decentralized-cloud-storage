@@ -128,13 +128,13 @@ html {
   font-family: 'Poppins', sans-serif;
   font-size: 4em;
   font-weight: bold;
-  color: #0f0d17;
+  color: #f2f1f5;
   margin-top: 20px;
 }
 
 .heroText {
   font-size: 1.2em;
-  color: #555;
+  color: #f4f0f0;
   margin: 20px 0;
 }
 
@@ -161,7 +161,7 @@ html {
 }
 
 .primary {
-  background: #785ef0;
+  background: #c504cc;
   color: white;
 }
 
@@ -171,14 +171,10 @@ html {
 }
 
 .pink {
-  background: #ec4899;
+  background: #eeb304;
   color: white;
 }
 
-.orange {
-  background: #f59e0b;
-  color: white;
-}
 
 /* Hero Image - Scale Effect */
 .heroImage img {
@@ -222,7 +218,7 @@ html {
   -webkit-backdrop-filter: blur(10px); /* For Safari */
   border-radius: 10px;
   padding: 40px; /* Increased padding */
-  color: #000; /* Changed font color to black */
+  color: #f7f5f5; /* Changed font color to black */
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   font-weight: bold;
   transition: all 0.3s ease;
@@ -294,7 +290,7 @@ html {
   position: relative;
   padding: 40px;
   background: rgba(128, 0, 128, 0.1); /* Purple background */
-  color: #000;
+  color: #f3f4f6;
   border-radius: 10px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   font-weight: bold;
@@ -490,75 +486,102 @@ html {
   pointer-events: none;
   top: 0;
   left: 0;
+  background-color: #080808; /* Light blue-white tint for the background */
 }
 
 .blob {
   position: absolute;
   border-radius: 50%;
   filter: blur(40px);
-  opacity: 0.6;
-  animation: float 20s ease-in-out infinite;
+  opacity: 0.5;
+  box-shadow: 0 0 30px 10px rgba(255, 255, 255, 0.3);
+  animation: floatAround 40s ease-in-out infinite;
 }
 
-/* Blob sizes and colors */
+/* Blob sizes and colors - better distributed across screen */
 .blob.pink {
   width: 220px;
   height: 220px;
   background: #ec4899;
-  top: 5%; 
-  left: 10%;
+  top: 15%; 
+  left: 12%;
+  animation-delay: -5s;
 }
 
 .blob.green {
   width: 250px;
   height: 250px;
   background: #34d399;
-  top: 20%; 
-  left: 60%;
+  top: 30%; 
+  right: 15%;
+  animation-delay: -12s;
 }
 
 .blob.yellow {
   width: 180px;
   height: 180px;
   background: #f59e0b;
-  top: 40%; 
+  bottom: 25%; 
   left: 20%;
+  animation-delay: -20s;
 }
 
 .blob.blue {
   width: 220px;
   height: 220px;
   background: #3b82f6;
-  top: 10%; 
-  left: 80%;
+  top: 15%; 
+  right: 25%;
+  animation-delay: -8s;
 }
 
 .blob.purple {
   width: 240px;
   height: 240px;
   background: #8b5cf6;
-  top: 60%; 
-  left: 50%;
+  bottom: 15%; 
+  right: 30%;
+  animation-delay: -15s;
 }
 
 .blob.red {
   width: 200px;
   height: 200px;
   background: #ef4444;
-  top: 70%; 
-  left: 30%;
+  bottom: 12%; 
+  left: 15%;
+  animation-delay: -25s;
 }
 
 .blob.teal {
   width: 220px;
   height: 220px;
   background: #14b8a6;
-  top: 80%; 
-  left: 70%;
+  top: 60%; 
+  left: 50%;
+  animation-delay: -18s;
 }
 
-/* Animation for blobs */
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-40px); }
+/* Animation for blobs - smooth floating movement in multiple directions */
+@keyframes floatAround {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    filter: blur(40px) brightness(1);
+  }
+  25% {
+    transform: translate(40px, -30px) rotate(5deg);
+    filter: blur(45px) brightness(1.1);
+  }
+  50% {
+    transform: translate(0, -60px) rotate(0deg);
+    filter: blur(50px) brightness(1.2);
+  }
+  75% {
+    transform: translate(-40px, -30px) rotate(-5deg);
+    filter: blur(45px) brightness(1.1);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+    filter: blur(40px) brightness(1);
+  }
 }
