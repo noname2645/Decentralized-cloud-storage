@@ -1,5 +1,6 @@
 // Home.js
-
+import { signOut } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
 import React, { useEffect, useRef, useState } from "react";
 import { ethers } from "ethers";
 import { db, auth } from "../config.js";
@@ -30,6 +31,16 @@ const Home = () => {
     content: null,
     fileName: ''
   });
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate("/"); // redirect to landing page
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
 
   // 3D Background Setup
   useEffect(() => {
@@ -155,29 +166,39 @@ const Home = () => {
       alert("Please log in first.");
       return;
     }
-
+  
     setLoading(true);
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const metadata = JSON.stringify({
-      name: file.name,
-      keyvalues: {
-        userId: user.uid,
-        name: file.name,
-        type: file.type || "unknown",
-      },
-    });
-    
-    const options = JSON.stringify({
-      cidVersion: 1, // 👈 This tells Pinata to NOT deduplicate (generate a new hash)
-    });
-    
-    formData.append("pinataMetadata", metadata);
-    formData.append("pinataOptions", options); // 👈 Add this line!
-    
-
+  
     try {
+      // 🔁 Force uniqueness by modifying file content slightly (harmless trick)
+      const originalBuffer = await file.arrayBuffer();
+      const paddedBuffer = new Uint8Array(originalBuffer.byteLength + 1);
+      paddedBuffer.set(new Uint8Array(originalBuffer), 0);
+      paddedBuffer[paddedBuffer.length - 1] = Math.floor(Math.random() * 256); // Add random byte
+  
+      const modifiedBlob = new Blob([paddedBuffer], { type: file.type });
+      const modifiedFile = new File([modifiedBlob], file.name, { type: file.type });
+  
+      const formData = new FormData();
+      formData.append("file", modifiedFile); // 👈 now it's unique content
+  
+      const metadata = JSON.stringify({
+        name: file.name,
+        keyvalues: {
+          userId: user.uid,
+          name: file.name,
+          type: file.type || "unknown",
+          timestamp: `${Date.now()}-${Math.floor(Math.random() * 100000)}`
+        },
+      });
+  
+      const options = JSON.stringify({
+        cidVersion: 1,
+      });
+  
+      formData.append("pinataMetadata", metadata);
+      formData.append("pinataOptions", options);
+  
       const response = await axios.post("https://api.pinata.cloud/pinning/pinFileToIPFS", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -185,28 +206,31 @@ const Home = () => {
           pinata_secret_api_key: pinataConfig.pinataSecretApiKey,
         },
       });
-
+  
       const fileCID = response.data.IpfsHash;
-
+  
       const provider = new ethers.providers.JsonRpcProvider("http://127.0.0.1:7545");
       const signer = new ethers.Wallet(contractAddress.Accprivate, provider);
       const contract = new ethers.Contract(contractAddress.Accaddress, contractABI, signer);
       await contract.uploadFile(fileCID, file.size);
-
+  
       await addDoc(collection(db, "files"), {
         userId: user.uid,
         fileCID,
         type: file.type || "unknown",
         timestamp: new Date(),
       });
-
+  
       fetchPinnedFilesFromPinata(user.uid);
     } catch (error) {
       console.error("Upload failed:", error);
+      alert("Upload failed.");
     }
-
+  
     setLoading(false);
   };
+  
+  
 
   const handleImageClick = (fileCID, type) => {
     setSelectedImage({ fileCID, type });
@@ -286,7 +310,7 @@ const Home = () => {
           return (
             <div className="preview-error">
               <p>Preview not available for this file type</p>
-              <a 
+              <a
                 href={`https://gateway.pinata.cloud/ipfs/${preview.content}`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -314,14 +338,70 @@ const Home = () => {
   return (
     <div className="app-wrapper">
       <div ref={mountRef} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: -1, pointerEvents: 'none' }}></div>
+      <div style={{
+        position: "absolute",
+        top: "20px",
+        right: "30px",
+        zIndex: 10
+      }}>
+        <button id="btn1"
+          onClick={handleLogout}>Logout
+        </button>
+      </div>
       <div className="hello">
         <h2 className="welcome-text">
           Welcome <span style={{ color: "#ffa500" }}>{user ? user.email : ""}</span>
         </h2>
 
-        <button onClick={handleFileSelect} disabled={loading} className="upload-btn">
-          {loading ? "Uploading..." : "Upload File"}
+        <button onClick={handleFileSelect} id="btn2">
+          <p id="button__text">
+            <span style={{ "--index": 0 }}>U</span>
+            <span style={{ "--index": 1 }}>P</span>
+            <span style={{ "--index": 2 }}>L</span>
+            <span style={{ "--index": 3 }}>O</span>
+            <span style={{ "--index": 4 }}>A</span>
+            <span style={{ "--index": 5 }}>D</span>
+            <span style={{ "--index": 7 }}> </span>
+            <span style={{ "--index": 8 }}>Y</span>
+            <span style={{ "--index": 9 }}>O</span>
+            <span style={{ "--index": 10 }}>U</span>
+            <span style={{ "--index": 11 }}>R</span>
+            <span style={{ "--index": 12 }}> </span>
+            <span style={{ "--index": 13 }}>F</span>
+            <span style={{ "--index": 14 }}>I</span>
+            <span style={{ "--index": 15 }}>L</span>
+            <span style={{ "--index": 16 }}>E</span>
+          </p>
+
+          <div id="button__circle">
+            <svg
+              viewBox="0 0 14 15"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="button__icon"
+              width="14"
+            >
+              <path
+                d="M13.376 11.552l-.264-10.44-10.44-.24.024 2.28 6.96-.048L.2 12.56l1.488 1.488 9.432-9.432-.048 6.912 2.304.024z"
+                fill="currentColor"
+              ></path>
+            </svg>
+
+            <svg
+              viewBox="0 0 14 15"
+              fill="none"
+              width="14"
+              xmlns="http://www.w3.org/2000/svg"
+              className="button__icon button__icon--copy"
+            >
+              <path
+                d="M13.376 11.552l-.264-10.44-10.44-.24.024 2.28 6.96-.048L.2 12.56l1.488 1.488 9.432-9.432-.048 6.912 2.304.024z"
+                fill="currentColor"
+              ></path>
+            </svg>
+          </div>
         </button>
+
       </div>
 
       <div className="files-grid">
@@ -379,7 +459,7 @@ const Home = () => {
                 >
                   <img src={pdf} alt="PDF"></img>
                 </div>
-            
+
                 {/* Fullscreen PDF Modal */}
                 {pdfModal.isOpen && pdfModal.cid === file.fileCID && (
                   <div className="modal-overlay" onClick={() => setPdfModal({ isOpen: false, cid: "" })}>
@@ -400,7 +480,7 @@ const Home = () => {
             ) : (
               <p>📁 Unsupported file type</p>
             )}
-            
+
 
             {/* Delete button on hover */}
             {hoveredIndex === index && (
