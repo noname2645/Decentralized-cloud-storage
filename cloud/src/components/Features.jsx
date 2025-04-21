@@ -36,11 +36,6 @@ export default function Features() {
           />
 
           <Feature 
-            title="IPFS" 
-            description="Leverage the power of the InterPlanetary File System, a peer-to-peer hypermedia protocol designed to make the web faster, safer, and more open. Content-addressing ensures file integrity and eliminates duplication." 
-          />
-
-          <Feature 
             title="END-TO-END ENCRYPTION" 
             description="Your files are encrypted before leaving your device and can only be decrypted by those with proper permissions. Not even the storage providers can access your unencrypted data." 
           />
@@ -60,10 +55,6 @@ export default function Features() {
             description="File metadata and access permissions are anchored to blockchain networks, providing immutable records of ownership and an auditable history of file modifications." 
           />
           
-          <Feature 
-            title="PERMANENT FILE HOSTING" 
-            description="Once stored on the network, files can persist indefinitely without centralized hosting services. Data availability is maintained through network incentives rather than subscription payments." 
-          />
         </div>
       </div>
     </div>

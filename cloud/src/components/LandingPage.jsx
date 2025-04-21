@@ -140,8 +140,7 @@ const DecentralizedCloudStorage = () => {
                   <ul className={styles.footerColumnList}>
                     {items.map((item, i) => (
                       <li key={i}>
-                        <Link to={routeMap[item]} className={styles.footerLink}>
-                          {item}
+                        <Link to="/features" className={styles.footerLink}>{item}
                         </Link>
                       </li>
                     ))}
@@ -153,7 +152,7 @@ const DecentralizedCloudStorage = () => {
 
         </div>
         <div className={styles.footerBottom}>
-          <p className={styles.copyright}>Copyright Â© 2025 Decentralized Cloud Storage | All rights reserved</p>
+          <p className={styles.copyright}>Copyright ©2025 Decentralized Cloud Storage | All rights reserved</p>
           <ul className={styles.footerBottomLinks}>
             {["Privacy policy", "Terms & conditions", "Acceptable use", "DMCA"].map((item, i) => (
               <li key={i}><a href="/" className={styles.footerBottomLink}>{item}</a></li>
