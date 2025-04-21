@@ -1,15 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
 
-
-/* Reset and Base Styles */
-
-
 :root {
   --primary-color: #00adb5;
   --primary-hover: #007a8e;
   --background-dark: rgb(30, 30, 30);
   --text-light: white;
   --overlay-bg: rgba(0, 0, 0, 0.2);
+  --card-glow: rgba(39, 171, 237, 0.3);
+  --card-border: rgba(39, 171, 237, 0.3);
+  --error-color: rgb(255, 84, 84);
 }
 
 html, body {
@@ -19,7 +18,7 @@ html, body {
 /* Layout */
 .app-wrapper {
   padding: 2rem;
-  margin-left: 26px;
+  /* margin-left: 26px; */
 }
 
 .hello {
@@ -66,41 +65,576 @@ html, body {
 
 /* Grid Layout */
 .files-grid {
-  width: 1400px;
+  width: 100%;
+  max-width: 1300px;
   margin: 2rem auto 0;
   padding: 1rem;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 30px;
-  /* border: 2px solid white; */
 }
 
-/* File Cards */
+/* File Cards with 3D Effects */
 .file-card {
   position: relative;
   width: 100%;
-  height: 200px; /* Uniform height for all cards */
+  height: 200px;
   border-radius: 20px;
   overflow: hidden;
   cursor: pointer;
-  box-shadow: 0 0 10px rgba(255,255,255,0.05);
-  transition: transform 0.2s;
-  border: 2px solid rgb(39, 171, 237);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(39, 171, 237, 0.3);
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transform-style: preserve-3d;
+  perspective: 1000px;
+  border: none;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.9));
+  backdrop-filter: blur(5px);
 }
 
 .file-card:hover {
-  transform: scale(1.02);
+  transform: translateY(-10px) rotateX(5deg);
+  box-shadow: 0 15px 40px rgba(39, 171, 237, 0.4), 0 0 20px rgba(39, 171, 237, 0.2);
 }
 
-/* File Image */
-.file-image {
+.file-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(225deg, transparent 60%, rgba(39, 171, 237, 0.3));
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.file-card:hover::before {
+  opacity: 1;
+}
+
+.file-info {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(3px);
+  z-index: 2;
+  border-bottom: 1px solid rgba(39, 171, 237, 0.3);
+  transform: translateZ(10px);
+}
+
+.file-info img {
+  height: 25px !important;
+  width: 25px !important;
+  margin-left: 5px;
+}
+
+#file-name {
+  color: #39c9e0;
+  font-weight: 500;
+  margin-left: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Preview Container */
+.preview-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.file-image, .file-video {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
-  border-radius: 9px;
+  border-radius: 0;
+  transition: transform 0.5s ease;
 }
 
+.file-card:hover .file-image,
+.file-card:hover .file-video {
+  transform: scale(1.05);
+}
+
+/* Video Overlay for Play */
+.video-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.file-card:hover .video-overlay {
+  opacity: 1;
+}
+
+.play-icon {
+  font-size: 40px;
+  color: white;
+  background: rgba(0, 0, 0, 0.5);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transform: scale(0.8);
+  transition: all 0.3s ease;
+}
+
+.file-card:hover .play-icon {
+  transform: scale(1);
+}
+
+/* For video loading errors */
+.video-error {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--error-color);
+  text-align: center;
+  font-size: 14px;
+}
+
+.video-error:after {
+  content: "Error loading video";
+  padding: 20px;
+}
+
+/* Delete Button */
+.delete-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  font-size: 14px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  z-index: 10;
+  opacity: 0;
+  transform: translateZ(15px) scale(0.8);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.file-card:hover .delete-btn {
+  opacity: 1;
+  transform: translateZ(15px) scale(1);
+}
+
+.delete-btn:hover {
+  background: rgba(255, 0, 0, 0.8);
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: translateZ(15px) scale(1.1);
+}
+
+/* PDF Preview Styling */
+.pdf-preview {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.pdf-thumbnail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  transition: transform 0.3s ease;
+}
+
+.pdf-icon {
+  width: 100%;
+  height: 100%;
+  margin-bottom: 10px;
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.2));
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+.file-card:hover .pdf-icon {
+  transform: scale(1.1);
+  filter: drop-shadow(0 0 12px rgba(57, 201, 224, 0.6));
+}
+
+.view-pdf-text {
+  color: var(--text-light);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+  background: rgba(0, 173, 181, 0.7);
+  padding: 5px 12px;
+  border-radius: 4px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+}
+
+.file-card:hover .view-pdf-text {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Unknown file type styling */
+.unknown-file-preview {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
+}
+
+.unknown-file-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.unknown-file-icon img {
+  width: 60px !important;
+  height: 60px !important;
+  margin-bottom: 15px;
+  opacity: 0.7;
+  transition: all 0.3s ease;
+}
+
+.file-card:hover .unknown-file-icon img {
+  opacity: 1;
+  filter: grayscale(0%) drop-shadow(0 5px 15px rgba(39, 171, 237, 0.5));
+  transform: scale(1.1);
+}
+
+.unknown-file-text {
+  color: #999;
+  font-size: 13px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.file-card:hover .unknown-file-text {
+  color: #ccc;
+}
+
+/* No files message */
+.no-files-message {
+  text-align: center;
+  color: var(--text-light);
+  margin: 3rem 0;
+  padding: 2rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  backdrop-filter: blur(5px);
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Image/Video Overlay */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.overlay.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: all;
+}
+
+.enlarged-container {
+  position: relative;
+  width: 90%;
+  max-width: 1200px;
+  height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.enlarged-image {
+  max-width: 95%;
+  max-height: 95%;
+  border-radius: 12px;
+  object-fit: contain;
+  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.7);
+  transform: scale(0.9);
+  opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.overlay.show .enlarged-image {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* Close button for overlays */
+.close-preview-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.close-preview-btn:hover {
+  background: rgba(255, 59, 59, 0.8);
+  transform: scale(1.1);
+}
+
+/* PDF Modal */
+.pdf-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.pdf-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.pdf-modal-container {
+  width: 90%;
+  max-width: 1000px;
+  height: 80vh;
+  background: rgba(30, 30, 30, 0.8);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(39, 171, 237, 0.2);
+  border: 1px solid var(--card-border);
+  transform: scale(1);
+  opacity: 0;
+  transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.pdf-overlay.show .pdf-modal-container {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.pdf-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background: rgba(0, 0, 0, 0.7);
+  border-bottom: 1px solid var(--card-border);
+}
+
+.pdf-modal-header h3 {
+  color: var(--primary-color);
+  margin: 0;
+  font-size: 1.2rem;
+  text-shadow: 0 0 5px rgba(57, 201, 224, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80%;
+}
+
+.close-pdf-btn {
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.close-pdf-btn:hover {
+  background: rgba(255, 59, 59, 0.8);
+  transform: scale(1.1);
+}
+
+.pdf-viewer {
+  overflow: hidden;
+  position: relative;
+  background: #333;
+  width: 60%;
+  height: 100%;
+}
+
+.pdf-object {
+  background: #333;
+}
+
+.pdf-preview .pdf-thumbnail img{
+  height: 100px;
+  width: 100px;
+  margin-top: 40px;
+}
+
+/* Loading State Animation */
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+.loading-indicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  width: 100%;
+  color: var(--text-light);
+  animation: pulse 1.5s infinite;
+}
+
+/* Accessibility focus states */
+.file-card:focus-within {
+  box-shadow: 0 0 0 2px var(--primary-color), 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Media Queries for Responsiveness */
+@media screen and (max-width: 1200px) {
+  .files-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .app-wrapper {
+    padding: 1.5rem;
+  }
+
+  .hello {
+    width: 100%;
+    padding: 1.5rem;
+  }
+
+  .welcome-text {
+    font-size: 1.25rem;
+  }
+
+  .files-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 15px;
+    padding: 0.5rem;
+  }
+  
+  .file-card {
+    height: 180px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .app-wrapper {
+    padding: 1rem;
+  }
+
+  .hello {
+    padding: 1rem;
+    border-radius: 0.75rem;
+  }
+
+  .welcome-text {
+    font-size: 1.1rem;
+  }
+
+  .files-grid {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+  }
+  
+  .file-card {
+    height: 150px;
+  }
+  
+  .file-info img {
+    height: 20px !important;
+    width: 20px !important;
+  }
+  
+  #file-name {
+    font-size: 12px;
+  }
+  
+  .pdf-icon, 
+  .unknown-file-icon img {
+    width: 40px !important;
+    height: 40px !important;
+  }
+}
+
+/* Preserving original modal-overlay and modal-content for non-files components */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -135,197 +669,4 @@ html, body {
   cursor: pointer;
   font-weight: bold;
   z-index: 10000;
-}
-
-
-.app-wrapper .files-grid .file-info img{
-  height: 25px;
-  width: 25px;
-  margin-left: 5px;
-  margin-top: 3px;
-}
-
-.app-wrapper .files-grid #file-name{
-  color: #39c9e0;
-  background: transparent;
-  margin-left: 5px ;
-  /* border: 2px solid orange; */
-}
-
-.delete-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: rgba(255, 255, 255, 0.384);
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  font-size: 16px;
-  line-height: 28px;
-  text-align: center;
-  cursor: pointer;
-  z-index: 10;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  transition: background 0.3s;
-}
-
-.delete-btn:hover {
-  background: rgba(255, 0, 0, 1);
-}
-
-.file-card img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  /* border-radius: 12px; */
-}
-
-/* Image Overlay */
-.overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  backdrop-filter: blur(10px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  opacity: 0;
-  visibility: hidden;
-
-}
-
-.overlay.show {
-  opacity: 1;
-  visibility: visible;
-  transition: all 2s ease-in-out;
-}
-
-.enlarged-container {
-  padding: 1rem;
-  border-radius: 0.625rem;
-  width: 90%;
-  max-width: 1200px;
-  height: 90vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transform: scale(0.5);
-}
-
-.overlay.show .enlarged-container {
-  transform: scale(1);
-}
-
-.enlarged-image {
-  max-width: 100%;
-  max-height: 100%;
-  border-radius: 0.625rem;
-  object-fit: contain;
-  transform: scale(1);
-}
-
-.enlarged-video {
-  max-width: 100%;
-  max-height: 100%;
-  border-radius: 0.625rem;
-  object-fit: contain;
-  transform: scale(1);
-}
-
-.overlay:not(.show) .enlarged-image .enlarged-video {
-  transform: scale(0.5);
-}
-
-/* Media Queries */
-@media screen and (max-width: 768px) {
-  .app-wrapper {
-    padding: 1.5rem;
-  }
-
-  .hello {
-    width: 100%;
-    padding: 1.5rem;
-  }
-
-  .welcome-text {
-    font-size: 1.25rem;
-  }
-
-  .files-grid {
-    padding: 0 1.5rem;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  }
-}
-
-.enlarged-container {
-  padding: 1rem;
-  border-radius: 0.625rem;
-  width: 90%;
-  max-width: 1200px;
-  height: 90vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transform: scale(0.5);
-  transition: transform 0.5s ease-in-out; /* Smooth zoom */
-}
-
-.overlay.show .enlarged-container {
-  transform: scale(1);
-}
-
-.enlarged-image {
-  max-width: 100%;
-  max-height: 100%;
-  border-radius: 0.625rem;
-  object-fit: contain;
-  transform: scale(0.9);
-  transition: transform 0.5s ease-in-out; /* Smooth image scale */
-}
-
-.overlay.show .enlarged-image {
-  transform: scale(1);
-}
-
-/* Add this if you want to prevent jump-back */
-.overlay:not(.show) .enlarged-container {
-  transform: scale(0.5);
-  transition: transform 0.5s ease-in-out;
-}
-
-.overlay:not(.show) .enlarged-image {
-  transform: scale(0.9);
-  transition: transform 0.5s ease-in-out;
-}
-
-
-@media screen and (max-width: 480px) {
-  .app-wrapper {
-    padding: 1rem;
-  }
-
-  .hello {
-    padding: 1rem;
-    border-radius: 0.75rem;
-  }
-
-  .welcome-text {
-    font-size: 1.1rem;
-  }
-
-  .files-grid {
-    padding: 0 1rem;
-    grid-template-columns: 1fr;
-  }
-
-  .upload-btn {
-    padding: 0.5rem 1rem;
-  }
 }

@@ -24,6 +24,12 @@ const Home = () => {
   const mountRef = useRef(null);
   const [hoveredIndex, setHoveredIndex] = useState(null);
   const [pdfModal, setPdfModal] = useState({ isOpen: false, cid: "" });
+  const [preview, setPreview] = useState({
+    isOpen: false,
+    type: null,
+    content: null,
+    fileName: ''
+  });
 
   // 3D Background Setup
   useEffect(() => {
@@ -223,6 +229,83 @@ const Home = () => {
     }
   };
 
+  const handlePreview = (file) => {
+    setPreview({
+      isOpen: true,
+      type: file.type,
+      content: file.fileCID,
+      fileName: file.fileName
+    });
+  };
+
+  const closePreview = () => {
+    setPreview({
+      isOpen: false,
+      type: null,
+      content: null,
+      fileName: ''
+    });
+  };
+
+  const PreviewOverlay = () => {
+    if (!preview.isOpen) return null;
+
+    const getPreviewContent = () => {
+      switch (true) {
+        case preview.type?.startsWith('image/'):
+          return (
+            <img
+              src={`https://gateway.pinata.cloud/ipfs/${preview.content}`}
+              alt={preview.fileName}
+              className="enlarged-image"
+            />
+          );
+        case preview.type?.startsWith('video/'):
+          return (
+            <video
+              src={`https://gateway.pinata.cloud/ipfs/${preview.content}`}
+              controls
+              className="enlarged-image"
+              autoPlay
+            />
+          );
+        case preview.type === 'application/pdf':
+          return (
+            <iframe
+              src={`https://gateway.pinata.cloud/ipfs/${preview.content}`}
+              title={preview.fileName}
+              className="enlarged-image pdf-viewer"
+            />
+          );
+        default:
+          return (
+            <div className="preview-error">
+              <p>Preview not available for this file type</p>
+              <a 
+                href={`https://gateway.pinata.cloud/ipfs/${preview.content}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="download-link"
+              >
+                Download File
+              </a>
+            </div>
+          );
+      }
+    };
+
+    return (
+      <div className={`overlay ${preview.isOpen ? 'show' : ''}`} onClick={closePreview}>
+        <div className="enlarged-container" onClick={e => e.stopPropagation()}>
+          {getPreviewContent()}
+          <button className="close-preview-btn" onClick={closePreview}>
+            ×
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="app-wrapper">
       <div ref={mountRef} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: -1, pointerEvents: 'none' }}></div>
@@ -243,6 +326,7 @@ const Home = () => {
             className="file-card"
             onMouseEnter={() => setHoveredIndex(index)}
             onMouseLeave={() => setHoveredIndex(null)}
+            onClick={() => handlePreview(file)}
           >
             {/* File Icon and Name */}
             <div className="file-info">
@@ -272,7 +356,6 @@ const Home = () => {
                 src={`https://gateway.pinata.cloud/ipfs/${file.fileCID}`}
                 alt="Uploaded"
                 className="file-image"
-                onClick={() => handleImageClick(file.fileCID, file.type)}
               />
             ) : file.type === "video/mp4" ? (
               <video
@@ -282,7 +365,6 @@ const Home = () => {
                 autoPlay
                 playsInline
                 className="file-video"
-                onClick={() => handleImageClick(file.fileCID, file.type)}
               />
             ) : file.type === "application/pdf" ? (
               <div className="pdf-preview">
@@ -290,7 +372,7 @@ const Home = () => {
                   className="pdf-thumbnail"
                   onClick={() => setPdfModal({ isOpen: true, cid: file.fileCID })}
                 >
-                  📄 <span className="underline cursor-pointer text-blue-500">Click to Preview PDF</span>
+                  <img src={pdf} alt="PDF"></img>
                 </div>
             
                 {/* Fullscreen PDF Modal */}
@@ -331,33 +413,27 @@ const Home = () => {
         ))}
       </div>
 
-
-      {selectedImage && (
-        <div className={`overlay ${isOverlayVisible ? "show" : ""}`} onClick={closeImagePreview}>
-          <div className="enlarged-container" onClick={(e) => e.stopPropagation()}>
-            {selectedImage.type.startsWith("image/") ? (
-              <img
-                src={`https://gateway.pinata.cloud/ipfs/${selectedImage.fileCID}`}
-                alt="Enlarged"
-                className="enlarged-image"
-              />
-            ) : selectedImage.type === "video/mp4" ? (
-              <video
-                src={`https://gateway.pinata.cloud/ipfs/${selectedImage.fileCID}`}
-                controls
-                autoPlay
-                controlsList="nodownload"
-                className="enlarged-video"
-              />
-            ) : (
-              <p>Unsupported preview type</p>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Preview Overlay */}
+      <PreviewOverlay />
 
     </div>
   );
+};
+
+// Helper function to get file icon
+const getFileIcon = (fileType) => {
+  switch (true) {
+    case fileType?.startsWith('image/jpeg'):
+      return jpg;
+    case fileType?.startsWith('image/png'):
+      return png;
+    case fileType?.startsWith('audio/'):
+      return audio;
+    case fileType === 'application/pdf':
+      return pdf;
+    default:
+      return jpeg; // default icon
+  }
 };
 
 export default Home;
