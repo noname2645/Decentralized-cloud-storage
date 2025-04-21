@@ -15,13 +15,14 @@
 /* Header */
 .header {
   background: #0f0d17;
-  padding: 20px 10%;
+  padding: 20px 5%;
   display: flex;
   justify-content: space-between;
   align-items: center;
   position: fixed;
-  width: 80%;
+  width: 90%; /* Changed from 80% */
   top: 0;
+  left: 0; /* Add this to position correctly */
   z-index: 1000;
   transition: background 0.3s ease-in-out;
 }
