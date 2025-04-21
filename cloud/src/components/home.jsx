@@ -1,4 +1,4 @@
-// Home.js (Updated to fetch files from Pinata directly and use CSS modules)
+// Home.js
 
 import React, { useEffect, useRef, useState } from "react";
 import { ethers } from "ethers";
@@ -8,7 +8,12 @@ import { onAuthStateChanged } from "firebase/auth";
 import axios from "axios";
 import { pinataConfig, contractAddress, contractABI } from "../config.js";
 import * as THREE from "three";
-import styles from "../stylesheets/Home.module.css"; // Updated to use CSS modules
+import "../stylesheets/home.css";
+import audio from "../assets/Images/audio.png";
+import jpeg from "../assets/Images/jpeg.png";
+import pdf from "../assets/Images/pdf.png";
+import jpg from "../assets/Images/jpg.png";
+import png from "../assets/Images/png-file.png";
 
 const Home = () => {
   const [files, setFiles] = useState([]);
@@ -18,7 +23,15 @@ const Home = () => {
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
   const mountRef = useRef(null);
   const [hoveredIndex, setHoveredIndex] = useState(null);
+  const [pdfModal, setPdfModal] = useState({ isOpen: false, cid: "" });
+  const [preview, setPreview] = useState({
+    isOpen: false,
+    type: null,
+    content: null,
+    fileName: ''
+  });
 
+  // 3D Background Setup
   useEffect(() => {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#020210");
@@ -81,15 +94,16 @@ const Home = () => {
     };
   }, []);
 
+  // Auth Check
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser) fetchPinnedFilesFromPinata();
+      if (currentUser) fetchPinnedFilesFromPinata(currentUser.uid);
     });
     return () => unsubscribe();
   }, []);
 
-  const fetchPinnedFilesFromPinata = async () => {
+  const fetchPinnedFilesFromPinata = async (userId) => {
     try {
       const res = await axios.get("https://api.pinata.cloud/data/pinList", {
         headers: {
@@ -98,14 +112,20 @@ const Home = () => {
         },
         params: {
           status: "pinned",
-          pageLimit: 50,
+          pageLimit: 100,
         },
       });
 
-      const files = res.data.rows.map(file => ({
+      const filtered = res.data.rows.filter(
+        (file) => file.metadata?.keyvalues?.userId === userId
+      );
+
+      const files = filtered.map((file) => ({
         fileCID: file.ipfs_pin_hash,
-        type: file.metadata?.keyvalues?.type || "image/jpeg" // assuming fallback
+        fileName: file.metadata?.keyvalues?.name || file.metadata?.name || file.file_name,  // better fallback
+        type: file.metadata?.keyvalues?.type || "unknown",
       }));
+
       setFiles(files);
     } catch (err) {
       console.error("Error fetching from Pinata:", err);
@@ -116,7 +136,7 @@ const Home = () => {
   const handleFileSelect = () => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = "image/*";
+    input.accept = "image/*,.pdf,video/mp4";
     input.className = "hidden-input";
 
     input.addEventListener("change", (e) => {
@@ -139,6 +159,18 @@ const Home = () => {
     setLoading(true);
     const formData = new FormData();
     formData.append("file", file);
+
+    const metadata = JSON.stringify({
+      name: file.name, // this sets the visible file name in Pinata
+      keyvalues: {
+        userId: user.uid,
+        name: file.name,         // <- this makes sure you can access it in fetch
+        type: file.type || "unknown",
+      },
+    });
+
+
+    formData.append("pinataMetadata", metadata);
 
     try {
       const response = await axios.post("https://api.pinata.cloud/pinning/pinFileToIPFS", formData, {
@@ -163,7 +195,7 @@ const Home = () => {
         timestamp: new Date(),
       });
 
-      fetchPinnedFilesFromPinata();
+      fetchPinnedFilesFromPinata(user.uid);
     } catch (error) {
       console.error("Upload failed:", error);
     }
@@ -171,8 +203,8 @@ const Home = () => {
     setLoading(false);
   };
 
-  const handleImageClick = (fileCID) => {
-    setSelectedImage(fileCID);
+  const handleImageClick = (fileCID, type) => {
+    setSelectedImage({ fileCID, type });
     setIsOverlayVisible(true);
   };
 
@@ -197,66 +229,211 @@ const Home = () => {
     }
   };
 
+  const handlePreview = (file) => {
+    setPreview({
+      isOpen: true,
+      type: file.type,
+      content: file.fileCID,
+      fileName: file.fileName
+    });
+  };
+
+  const closePreview = () => {
+    setPreview({
+      isOpen: false,
+      type: null,
+      content: null,
+      fileName: ''
+    });
+  };
+
+  const PreviewOverlay = () => {
+    if (!preview.isOpen) return null;
+
+    const getPreviewContent = () => {
+      switch (true) {
+        case preview.type?.startsWith('image/'):
+          return (
+            <img
+              src={`https://gateway.pinata.cloud/ipfs/${preview.content}`}
+              alt={preview.fileName}
+              className="enlarged-image"
+            />
+          );
+        case preview.type?.startsWith('video/'):
+          return (
+            <video
+              src={`https://gateway.pinata.cloud/ipfs/${preview.content}`}
+              controls
+              className="enlarged-image"
+              autoPlay
+            />
+          );
+        case preview.type === 'application/pdf':
+          return (
+            <iframe
+              src={`https://gateway.pinata.cloud/ipfs/${preview.content}`}
+              title={preview.fileName}
+              className="enlarged-image pdf-viewer"
+            />
+          );
+        default:
+          return (
+            <div className="preview-error">
+              <p>Preview not available for this file type</p>
+              <a 
+                href={`https://gateway.pinata.cloud/ipfs/${preview.content}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="download-link"
+              >
+                Download File
+              </a>
+            </div>
+          );
+      }
+    };
+
+    return (
+      <div className={`overlay ${preview.isOpen ? 'show' : ''}`} onClick={closePreview}>
+        <div className="enlarged-container" onClick={e => e.stopPropagation()}>
+          {getPreviewContent()}
+          <button className="close-preview-btn" onClick={closePreview}>
+            ×
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className={styles.homeAppWrapper}>
+    <div className="app-wrapper">
       <div ref={mountRef} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: -1, pointerEvents: 'none' }}></div>
-      <div className={styles.homeHello}>
-        <h2 className={styles.homeWelcomeText}>
-          Welcome <span style={{ color: "#ffa500" }}>{user ? user.email : "Guest"}</span>
+      <div className="hello">
+        <h2 className="welcome-text">
+          Welcome <span style={{ color: "#ffa500" }}>{user ? user.email : ""}</span>
         </h2>
 
-        <button onClick={handleFileSelect} disabled={loading} className={styles.homeUploadBtn}>
+        <button onClick={handleFileSelect} disabled={loading} className="upload-btn">
           {loading ? "Uploading..." : "Upload File"}
         </button>
       </div>
 
-      <div className={styles.homeFilesGrid}>
-        {files.map((file, index) =>
-          file.type.startsWith("image/") && (
-            <div
-              key={index}
-              className={styles.homeFileCard}
-              onMouseEnter={() => setHoveredIndex(index)}
-              onMouseLeave={() => setHoveredIndex(null)}
-            >
+      <div className="files-grid">
+        {files.map((file, index) => (
+          <div
+            key={index}
+            className="file-card"
+            onMouseEnter={() => setHoveredIndex(index)}
+            onMouseLeave={() => setHoveredIndex(null)}
+            onClick={() => handlePreview(file)}
+          >
+            {/* File Icon and Name */}
+            <div className="file-info">
+              {/* Show icon based on file type */}
+              {file.type.startsWith("image/png") ? (
+                <img src={png} alt="PNG"></img>
+              ) : file.type === "video/mp4" ? (
+                <img src={audio} alt="MP4"></img>
+              ) : file.type === "application/pdf" ? (
+                <img src={pdf} alt="PDF"></img>
+              ) : file.type.startsWith("image/jpeg") ? (
+                <img src={jpeg} alt="JPEG"></img>
+              ) : file.type.startsWith("image/jpg") ? (
+                <img src={jpg} alt="JPG"></img>
+              ) : (
+                <span role="img" aria-label="file">📁</span>
+              )}
+              <span id="file-name">
+                {file.fileName}
+              </span>
+
+            </div>
+
+            {/* Display file preview */}
+            {file.type.startsWith("image/") ? (
               <img
                 src={`https://gateway.pinata.cloud/ipfs/${file.fileCID}`}
                 alt="Uploaded"
-                className={styles.homeFileImage}
-                onClick={() => handleImageClick(file.fileCID)}
+                className="file-image"
               />
-              {hoveredIndex === index && (
-                <button
-                  className={styles.homeDeleteBtn}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(file.fileCID);
-                  }}
+            ) : file.type === "video/mp4" ? (
+              <video
+                src={`https://gateway.pinata.cloud/ipfs/${file.fileCID}`}
+                muted
+                loop
+                autoPlay
+                playsInline
+                className="file-video"
+              />
+            ) : file.type === "application/pdf" ? (
+              <div className="pdf-preview">
+                <div
+                  className="pdf-thumbnail"
+                  onClick={() => setPdfModal({ isOpen: true, cid: file.fileCID })}
                 >
-                  ✕
-                </button>
-              )}
-            </div>
-          )
-        )}
+                  <img src={pdf} alt="PDF"></img>
+                </div>
+            
+                {/* Fullscreen PDF Modal */}
+                {pdfModal.isOpen && pdfModal.cid === file.fileCID && (
+                  <div className="modal-overlay" onClick={() => setPdfModal({ isOpen: false, cid: "" })}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                      <embed
+                        src={`https://gateway.pinata.cloud/ipfs/${pdfModal.cid}`}
+                        type="application/pdf"
+                        width="100%"
+                        height="100%"
+                      />
+                      <button className="close-btn" onClick={() => setPdfModal({ isOpen: false, cid: "" })}>
+                        ✖ Close
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p>📁 Unsupported file type</p>
+            )}
+            
+
+            {/* Delete button on hover */}
+            {hoveredIndex === index && (
+              <button
+                className="delete-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(file.fileCID);
+                }}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        ))}
       </div>
 
-      {selectedImage && (
-        <div 
-          className={`${styles.homeOverlay} ${isOverlayVisible ? styles.show : ""}`} 
-          onClick={closeImagePreview}
-        >
-          <div className={styles.homeEnlargedContainer} onClick={(e) => e.stopPropagation()}>
-            <img
-              src={`https://gateway.pinata.cloud/ipfs/${selectedImage}`}
-              alt="Enlarged"
-              className={styles.homeEnlargedImage}
-            />
-          </div>
-        </div>
-      )}
+      {/* Preview Overlay */}
+      <PreviewOverlay />
+
     </div>
   );
+};
+
+// Helper function to get file icon
+const getFileIcon = (fileType) => {
+  switch (true) {
+    case fileType?.startsWith('image/jpeg'):
+      return jpg;
+    case fileType?.startsWith('image/png'):
+      return png;
+    case fileType?.startsWith('audio/'):
+      return audio;
+    case fileType === 'application/pdf':
+      return pdf;
+    default:
+      return jpeg; // default icon
+  }
 };
 
 export default Home;

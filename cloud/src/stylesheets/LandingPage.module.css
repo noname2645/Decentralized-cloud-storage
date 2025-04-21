@@ -1,27 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap');
+
+*{
+  font-family:"Roboto Mono", monospace;;
+}
+
 .pageContainer {
   margin: 0;
   padding: 0;
-  font-family: Arial, sans-serif;
-  background: transparent; /* Changed from #dbeafe to transparent */
-  position: relative; /* To keep the blobs behind the content */
-  overflow-x: hidden; /* Prevent horizontal scroll from blobs */
-}
-
-/* Smooth Scrolling */
-html {
-  scroll-behavior: smooth;
+  background: transparent;
+  position: relative;
+  overflow-x: hidden;
 }
 
 /* Header */
 .header {
   background: #0f0d17;
-  padding: 20px 10%;
+  padding: 20px 5%;
   display: flex;
   justify-content: space-between;
   align-items: center;
   position: fixed;
-  width: 80%; /* Changed from 100% to 80% for proper padding */
+  width: 90%; /* Changed from 80% */
   top: 0;
+  left: 0; /* Add this to position correctly */
   z-index: 1000;
   transition: background 0.3s ease-in-out;
 }
@@ -93,7 +94,7 @@ html {
   justify-content: space-between;
   align-items: center;
   background: transparent; /* Changed from solid white to transparent */
-  padding: 80px 10%;
+  padding: 10px 10%;
   min-height: 90vh;
   opacity: 0;
   transform: translateY(50px);
@@ -160,18 +161,8 @@ html {
   box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.2);
 }
 
-.primary {
-  background: #c504cc;
-  color: white;
-}
-
-.green {
-  background: #34d399;
-  color: white;
-}
-
 .pink {
-  background: #eeb304;
+  background: hsl(310, 97%, 47%);
   color: white;
 }
 
@@ -203,6 +194,7 @@ html {
   font-family: 'Poppins', sans-serif;
   text-transform: uppercase;
   margin-bottom: 40px;
+  color:#a7d3f2
 }
 
 .toolboxSection {
@@ -486,7 +478,7 @@ html {
   pointer-events: none;
   top: 0;
   left: 0;
-  background-color: #080808; /* Light blue-white tint for the background */
+  background-color: #1b1b1b ; /* Light blue-white tint for the background */
 }
 
 .blob {

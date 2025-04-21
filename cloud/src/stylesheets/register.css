@@ -1,8 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Afacad+Flux:wght@100..1000&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Merienda:wght@300..900&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
 
+/* Make CSS reset specific to form component */
+.form-container * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
 
-/* Form Container */
-.form {
+/* Rename form class to avoid collisions */
+.register-form {
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -11,17 +17,19 @@
     max-width: 350px;
     padding: 20px;
     border-radius: 20px;
-    position: absolute; /* Change to absolute */
+    position: absolute;
     background-color: #1a1a1a;
     color: #fff;
     border: 1px solid #333;
-    top: 50%; /* Move the form to the center vertically */
-    left: 50%; /* Move the form to the center horizontally */
-    transform: translate(-50%, -50%); /* Perfect centering */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 100; 
+    animation: slideInFromLeft 0.6s ease-out;
 }
 
-/* Title Style */
-.title {
+/* Update other selectors to match the new class name */
+.register-title {
     font-size: 50px;
     font-weight: 600;
     letter-spacing: 2px;
@@ -35,52 +43,54 @@
 }
 
 /* Animated title dots */
-.title::before,
-.title::after {
+.register-title::before,
+.register-title::after {
     position: absolute;
     content: "";
-    height: 16px;
-    width: 16px;
+    height: 5px;
+    width: 5px;
     border-radius: 50%;
     left: 0;
     background-color: #00bfff;
+    margin-left: 103px;
+    margin-bottom: 40px;
 }
 
-.title::before {
+.register-title::before {
     width: 18px;
     height: 18px;
 }
 
-.title::after {
+.register-title::after {
     width: 18px;
     height: 18px;
     animation: pulse 1s linear infinite;
 }
 
 /* Form Message and Sign In link */
-.message,
-.signin {
+.register-message,
+.register-signin {
     font-size: 20px;
     color: rgba(255, 255, 255, 0.7);
     background: transparent;
 }
 
-.signin {
+.register-signin {
     text-align: center;
 }
 
-.signin a {
+.register-signin a {
     color: #00bfff;
     text-decoration: none;
     background: transparent;
 }
 
-.signin a:hover {
+.register-signin a:hover {
     text-decoration: underline royalblue;
 }
 
 /* Form Input Labels */
-.form label {
+.register-form label {
     position: relative;
     color: #fff;
     width: 100%;
@@ -89,7 +99,7 @@
     border-radius: 10px;
 }
 
-.form label input {
+.register-form label input {
     font-size: 20px;
     letter-spacing: 2px;
     padding: 10px;
@@ -99,14 +109,14 @@
     color: #fff;
 }
 
-.form label input::placeholder {
-    font-size: 18px; /* Increased placeholder font size */
-    letter-spacing: 2px; /* Optional: Adjust letter-spacing for placeholder */
-    color: rgba(255, 255, 255, 0.7); /* Lighter color for placeholder */
+.register-form label input::placeholder {
+    font-size: 18px;
+    letter-spacing: 2px;
+    color: rgba(255, 255, 255, 0.7);
 }
 
 /* Submit Button */
-.submit {
+.register-submit {
     border: none;
     outline: none;
     padding: 10px;
@@ -122,18 +132,17 @@
     text-align: center;
 }
 
-.submit:hover {
+.register-submit:hover {
     background-color: #00bfff96;
 }
 
-#OR{
+.register-or {
     letter-spacing: 2px;
     background: transparent;
-    /* border: 2px solid; */
 }
 
 /* Google Sign Up Button */
-.google-signup-btn {
+.register-google-btn {
     display: flex;
     align-items: center;
     background-color: #0D1B4C;
@@ -148,18 +157,18 @@
     border: 2px solid navy;
 }
 
-.google-signup-btn:hover {
+.register-google-btn:hover {
     background-color: #022865;
 }
 
-.gimg {
+.register-gimg {
     height: 40px;
     width: 40px;
     margin-left: 25px;
     background: transparent;
 }
 
-#gtext{
+.register-gtext {
     letter-spacing: 1px;
     background: transparent;
     font-size: 18px;
@@ -177,3 +186,17 @@
         opacity: 0;
     }
 }
+
+/* Slide-in animation */
+/* Slide-in from left */
+@keyframes slideInFromLeft {
+    0% {
+      transform: translate(-120%, -50%);
+      opacity: 0;
+    }
+    100% {
+      transform: translate(-50%, -50%);
+      opacity: 1;
+    }
+  }
+  
