@@ -17,11 +17,11 @@ html, body {
   width: 100%;
   margin: 0;
   padding: 0;
+  scrollbar-color: none;
 }
 /* Layout */
 .app-wrapper {
   padding: 2rem;
-  /* margin-left: 26px; */
 }
 
 .hello {

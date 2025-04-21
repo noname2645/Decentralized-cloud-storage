@@ -161,16 +161,21 @@ const Home = () => {
     formData.append("file", file);
 
     const metadata = JSON.stringify({
-      name: file.name, // this sets the visible file name in Pinata
+      name: file.name,
       keyvalues: {
         userId: user.uid,
-        name: file.name,         // <- this makes sure you can access it in fetch
+        name: file.name,
         type: file.type || "unknown",
       },
     });
-
-
+    
+    const options = JSON.stringify({
+      cidVersion: 1, // 👈 This tells Pinata to NOT deduplicate (generate a new hash)
+    });
+    
     formData.append("pinataMetadata", metadata);
+    formData.append("pinataOptions", options); // 👈 Add this line!
+    
 
     try {
       const response = await axios.post("https://api.pinata.cloud/pinning/pinFileToIPFS", formData, {

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   getAuth,
@@ -27,30 +28,47 @@ const Login = () => {
   // Handle Email Sign In
   const handleEmailSignIn = async (e) => {
     e.preventDefault();
+    setErrorMessage(""); // Clear any previous error
     try {
       await setPersistence(auth, browserSessionPersistence);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       if (userCredential.user) {
-        navigate('/home');
+        navigate("/home");
       }
     } catch (error) {
-      setErrorMessage(error.message);
+      // Handle specific Firebase Auth error codes
+      switch (error.code) {
+        case "auth/user-not-found":
+          setErrorMessage("User not registered. Please sign up first.");
+          break;
+        case "auth/wrong-password":
+          setErrorMessage("Incorrect password. Please try again.");
+          break;
+        case "auth/invalid-email":
+          setErrorMessage("Invalid email format.");
+          break;
+        default:
+          setErrorMessage("Login failed. " + error.message);
+      }
     }
   };
-
+  
   // Handle Google Sign In
   const handleGoogleSignIn = async () => {
+    setErrorMessage(""); // Clear any previous error
     const provider = new GoogleAuthProvider();
     try {
       await setPersistence(auth, browserSessionPersistence);
       const result = await signInWithPopup(auth, provider);
       if (result.user) {
-        navigate('/home');
+        navigate("/home");
       }
     } catch (error) {
-      setErrorMessage(error.message);
+      // Optional: add specific error handling for Google Sign-In
+      setErrorMessage("Google sign-in failed. " + error.message);
     }
   };
+  
 
   // Three.js background effect
   React.useEffect(() => {
@@ -189,7 +207,7 @@ const Login = () => {
             <p className="register-gtext">Sign In with Google</p>
           </button>
 
-          <p className="register-signin">Don't have an account? <a href="/register">Register</a></p>
+          <p className="register-signin">Don't have an account? <Link to="/register">Register</Link></p>
         </form>
       </div>
     </>
