@@ -25,3 +25,4 @@ dist-ssr
 
 MyContract.json
 PinataStorage.json
+.env

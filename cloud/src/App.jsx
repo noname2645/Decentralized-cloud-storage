@@ -48,19 +48,6 @@ const router = createBrowserRouter([
 ]);
 
 const App = () => {
-  useEffect(() => {
-    const preventRightClick = (e) => {
-      e.preventDefault();
-    };
-
-    // Attach the event listener to the whole document
-    document.addEventListener('contextmenu', preventRightClick);
-
-    // Clean up the event listener when the component unmounts
-    return () => {
-      document.removeEventListener('contextmenu', preventRightClick);
-    };
-  }, []); // Empty dependency array ensures this only runs on mount/unmount
 
   return (
     // Wrap your app in RouterProvider to handle routing
