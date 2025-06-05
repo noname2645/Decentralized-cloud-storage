@@ -22,6 +22,12 @@ const Home = () => {
   const [user, setUser] = useState(null);
   const mountRef = useRef(null);
   const [hoveredIndex, setHoveredIndex] = useState(null);
+  const [uploadStatus, setUploadStatus] = useState({
+    isOpen: false,
+    stage: 'encrypting', // 'encrypting', 'uploading', 'blockchain', 'success'
+    progress: 0,
+    fileName: ''
+  });
   const [preview, setPreview] = useState({
     isOpen: false,
     type: null,
@@ -180,68 +186,297 @@ const Home = () => {
     document.body.removeChild(input);
   };
 
-  const handleUpload = async (file) => {
-    if (!file || !user) {
-      alert("Please log in first.");
-      return;
-    }
+  const simulateProgress = (stage, duration) => {
+    return new Promise((resolve) => {
+      // Set initial state without progress jump
+      setUploadStatus(prev => ({
+        ...prev,
+        stage,
+        progress: 0 // Start at 0, not jumping to any value
+      }));
 
-    setLoading(true);
+      let progress = 0;
+      const totalSteps = 100;
+      const stepDuration = duration / totalSteps;
 
-    try {
-      const originalBuffer = await file.arrayBuffer();
-      const encryptedString = encryptFile(originalBuffer); // no key arg needed now
+      const updateProgress = () => {
+        progress += 1;
 
-      const encryptedBlob = new Blob([encryptedString], { type: "text/plain" });
-      const encryptedFile = new File([encryptedBlob], file.name + ".aes", { type: "text/plain" });
+        setUploadStatus(prev => ({
+          ...prev,
+          progress: Math.min(progress, 100)
+        }));
 
+        if (progress >= 100) {
+          // Small delay before resolving to show 100% completion
+          setTimeout(resolve, 150);
+        } else {
+          setTimeout(updateProgress, stepDuration);
+        }
+      };
 
+      // Start the progress animation with a small delay to prevent jitter
+      setTimeout(updateProgress, 50);
+    });
+  };
 
-      const formData = new FormData();
-      formData.append("file", encryptedFile);
-      const metadata = JSON.stringify({
-        name: file.name,
-        keyvalues: {
-          userId: user.uid,
-          name: file.name,
-          type: file.type || "unknown",
-          timestamp: `${Date.now()}-${Math.floor(Math.random() * 100000)}`
-        },
-      });
-      const options = JSON.stringify({ cidVersion: 1 });
-      formData.append("pinataMetadata", metadata);
-      formData.append("pinataOptions", options);
+  // Alternative smoother version using requestAnimationFrame
+  const simulateProgressSmooth = (stage, duration) => {
+    return new Promise((resolve) => {
+      setUploadStatus(prev => ({
+        ...prev,
+        stage,
+        progress: 0
+      }));
 
-      const response = await axios.post("https://api.pinata.cloud/pinning/pinFileToIPFS", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          pinata_api_key: pinataConfig.pinataApiKey,
-          pinata_secret_api_key: pinataConfig.pinataSecretApiKey,
-        },
-      });
+      const startTime = performance.now();
 
-      const fileCID = response.data.IpfsHash;
+      const animate = (currentTime) => {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min((elapsed / duration) * 100, 100);
 
-      await axios.post("http://localhost:3001/upload", {
-        cid: fileCID,
-        size: file.size
-      });
+        setUploadStatus(prev => ({
+          ...prev,
+          progress: Math.round(progress)
+        }));
 
-      await addDoc(collection(db, "files"), {
+        if (progress >= 100) {
+          setTimeout(resolve, 100);
+        } else {
+          requestAnimationFrame(animate);
+        }
+      };
+
+      // Start animation with small delay to prevent jitter
+      setTimeout(() => requestAnimationFrame(animate), 50);
+    });
+  };
+
+  // Updated handleUpload function with better stage management
+  // Option 1: Completely remove delays between stages
+const handleUpload = async (file) => {
+  if (!file || !user) {
+    alert("Please log in first.");
+    return;
+  }
+
+  setLoading(true);
+
+  // Initialize modal with first stage
+  setUploadStatus({
+    isOpen: true,
+    stage: 'encrypting',
+    progress: 100, // Set to 100% immediately
+    fileName: file.name
+  });
+
+  try {
+    // Stage 1: Encrypting - Complete immediately
+    const originalBuffer = await file.arrayBuffer();
+    const encryptedString = encryptFile(originalBuffer);
+    const encryptedBlob = new Blob([encryptedString], { type: "text/plain" });
+    const encryptedFile = new File([encryptedBlob], file.name + ".aes", { type: "text/plain" });
+
+    // Stage 2: Uploading to IPFS - Show immediately after encryption
+    setUploadStatus(prev => ({
+      ...prev,
+      stage: 'uploading',
+      progress: 100
+    }));
+
+    const formData = new FormData();
+    formData.append("file", encryptedFile);
+    const metadata = JSON.stringify({
+      name: file.name,
+      keyvalues: {
         userId: user.uid,
-        fileCID,
+        name: file.name,
         type: file.type || "unknown",
-        timestamp: new Date(),
+        timestamp: `${Date.now()}-${Math.floor(Math.random() * 100000)}`
+      },
+    });
+    const options = JSON.stringify({ cidVersion: 1 });
+    formData.append("pinataMetadata", metadata);
+    formData.append("pinataOptions", options);
+
+    const response = await axios.post("https://api.pinata.cloud/pinning/pinFileToIPFS", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+        pinata_api_key: pinataConfig.pinataApiKey,
+        pinata_secret_api_key: pinataConfig.pinataSecretApiKey,
+      },
+    });
+
+    const fileCID = response.data.IpfsHash;
+
+    // Stage 3: Blockchain processing - Show immediately after upload
+    setUploadStatus(prev => ({
+      ...prev,
+      stage: 'blockchain',
+      progress: 100
+    }));
+
+    await axios.post("http://localhost:3001/upload", {
+      cid: fileCID,
+      size: file.size
+    });
+
+    await addDoc(collection(db, "files"), {
+      userId: user.uid,
+      fileCID,
+      type: file.type || "unknown",
+      timestamp: new Date(),
+    });
+
+    // Stage 4: Success - Show immediately after blockchain
+    setUploadStatus(prev => ({
+      ...prev,
+      stage: 'success',
+      progress: 100
+    }));
+
+    // Auto close after 2.5 seconds (keep this delay for success message)
+    setTimeout(() => {
+      setUploadStatus({
+        isOpen: false,
+        stage: 'encrypting',
+        progress: 0,
+        fileName: ''
       });
+      setLoading(false);
+    }, 2500);
+
+    fetchPinnedFilesFromPinata(user.uid);
+
+  } catch (error) {
+    console.error("Upload failed:", error);
+    alert("Upload failed: " + error.message);
+    setUploadStatus({
+      isOpen: false,
+      stage: 'encrypting',
+      progress: 0,
+      fileName: ''
+    });
+    setLoading(false);
+  }
+};
+
+// Option 2: Keep minimal delays (200ms) for visual feedback
+const handleUploadWithMinimalDelays = async (file) => {
+  if (!file || !user) {
+    alert("Please log in first.");
+    return;
+  }
+
+  setLoading(true);
+
+  // Initialize modal with first stage
+  setUploadStatus({
+    isOpen: true,
+    stage: 'encrypting',
+    progress: 100,
+    fileName: file.name
+  });
+
+  try {
+    // Stage 1: Encrypting
+    const originalBuffer = await file.arrayBuffer();
+    const encryptedString = encryptFile(originalBuffer);
+    const encryptedBlob = new Blob([encryptedString], { type: "text/plain" });
+    const encryptedFile = new File([encryptedBlob], file.name + ".aes", { type: "text/plain" });
+
+    // Brief pause to show encryption completed
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // Stage 2: Uploading to IPFS
+    setUploadStatus(prev => ({
+      ...prev,
+      stage: 'uploading',
+      progress: 100
+    }));
+
+    const formData = new FormData();
+    formData.append("file", encryptedFile);
+    const metadata = JSON.stringify({
+      name: file.name,
+      keyvalues: {
+        userId: user.uid,
+        name: file.name,
+        type: file.type || "unknown",
+        timestamp: `${Date.now()}-${Math.floor(Math.random() * 100000)}`
+      },
+    });
+    const options = JSON.stringify({ cidVersion: 1 });
+    formData.append("pinataMetadata", metadata);
+    formData.append("pinataOptions", options);
+
+    const response = await axios.post("https://api.pinata.cloud/pinning/pinFileToIPFS", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+        pinata_api_key: pinataConfig.pinataApiKey,
+        pinata_secret_api_key: pinataConfig.pinataSecretApiKey,
+      },
+    });
+
+    const fileCID = response.data.IpfsHash;
+
+    // Brief pause to show upload completed
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // Stage 3: Blockchain processing
+    setUploadStatus(prev => ({
+      ...prev,
+      stage: 'blockchain',
+      progress: 100
+    }));
+
+    await axios.post("http://localhost:3001/upload", {
+      cid: fileCID,
+      size: file.size
+    });
+
+    await addDoc(collection(db, "files"), {
+      userId: user.uid,
+      fileCID,
+      type: file.type || "unknown",
+      timestamp: new Date(),
+    });
+
+    // Brief pause to show blockchain completed
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // Stage 4: Success
+    setUploadStatus(prev => ({
+      ...prev,
+      stage: 'success',
+      progress: 100
+    }));
+
+    // Auto close after 2.5 seconds
+    setTimeout(() => {
+      setUploadStatus({
+        isOpen: false,
+        stage: 'encrypting',
+        progress: 0,
+        fileName: ''
+      });
+      setLoading(false);
+    }, 2500);
+
 
       fetchPinnedFilesFromPinata(user.uid);
-      alert("File uploaded successfully!");
+
     } catch (error) {
       console.error("Upload failed:", error);
       alert("Upload failed: " + error.message);
+      setUploadStatus({
+        isOpen: false,
+        stage: 'encrypting',
+        progress: 0,
+        fileName: ''
+      });
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const handleDelete = async (fileCID) => {
@@ -266,11 +501,11 @@ const Home = () => {
   const handlePreview = async (file) => {
     try {
       const res = await fetch(`https://gateway.pinata.cloud/ipfs/${file.fileCID}`);
-      const encryptedText = await res.text(); // because it's encrypted as base64 string
+      const encryptedText = await res.text();
 
       const decryptedBytes = decryptFile(encryptedText);
 
-      const blob = new Blob([decryptedBytes], { type: file.type }); // use original type
+      const blob = new Blob([decryptedBytes], { type: file.type });
       const url = URL.createObjectURL(blob);
 
       setPreview({
@@ -285,7 +520,6 @@ const Home = () => {
     }
   };
 
-
   const closePreview = () => {
     setPreview({
       isOpen: false,
@@ -293,6 +527,95 @@ const Home = () => {
       content: null,
       fileName: ''
     });
+  };
+  const UploadModal = () => {
+    if (!uploadStatus.isOpen) return null;
+
+    const getStageInfo = () => {
+      switch (uploadStatus.stage) {
+        case 'encrypting':
+          return {
+            title: 'Encrypting File',
+            icon: '🔐',
+            description: 'Securing your file with AES encryption...',
+            color: '#ff6b6b'
+          };
+        case 'uploading':
+          return {
+            title: 'Uploading to IPFS',
+            icon: '🚀',
+            description: 'Storing your encrypted file on IPFS...',
+            color: '#4ecdc4'
+          };
+        case 'blockchain':
+          return {
+            title: 'Processing Blockchain',
+            icon: '⛓️',
+            description: 'Recording transaction on blockchain...',
+            color: '#45b7d1'
+          };
+        case 'success':
+          return {
+            title: 'Upload Complete!',
+            icon: '✅',
+            description: 'Your file has been successfully uploaded and secured.',
+            color: '#96ceb4'
+          };
+        default:
+          return {
+            title: 'Processing',
+            icon: '⏳',
+            description: 'Please wait...',
+            color: '#ffa500'
+          };
+      }
+    };
+
+    const stageInfo = getStageInfo();
+
+    return (
+      <div className="upload-modal-overlay">
+        <div className="upload-modal" data-stage={uploadStatus.stage}>
+          <div className="upload-modal-content">
+            <div className="upload-icon-container">
+              <div className="upload-icon" style={{ backgroundColor: stageInfo.color }}>
+                <span className="upload-emoji">{stageInfo.icon}</span>
+              </div>
+            </div>
+
+            <h3 className="upload-title">{stageInfo.title}</h3>
+            <p className="upload-description">{stageInfo.description}</p>
+            <p className="upload-filename">{uploadStatus.fileName}</p>
+
+            <div className="upload-progress-container">
+              <div className="upload-progress-bar">
+                <div
+                  className="upload-progress-fill"
+                  style={{
+                    width: `${uploadStatus.progress}%`,
+                    backgroundColor: stageInfo.color
+                  }}
+                ></div>
+              </div>
+              <span className="upload-progress-text">{uploadStatus.progress}%</span>
+            </div>
+
+            {uploadStatus.stage === 'success' && (
+              <div className="upload-success-animation">
+                <div className="success-checkmark">
+                  <div className="check-icon">
+                    <span className="icon-line line-tip"></span>
+                    <span className="icon-line line-long"></span>
+                    <div className="icon-circle"></div>
+                    <div className="icon-fix"></div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const PreviewOverlay = () => {
@@ -355,8 +678,6 @@ const Home = () => {
       <div className="hello">
         <h2 className="welcome-text">Welcome <span style={{ color: "#ffa500" }}>{user ? user.email : ""}</span></h2>
 
-        {loading && <div style={{ color: "#ffa500", marginBottom: "20px", textAlign: "center", fontSize: "16px" }}>Uploading file and processing blockchain transaction...</div>}
-
         <button onClick={handleFileSelect} id="btn2" disabled={loading} style={{ opacity: loading ? 0.6 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}>
           <p id="button__text">
             {[...'UPLOAD YOUR FILE'].map((char, index) => (
@@ -394,7 +715,6 @@ const Home = () => {
               </div>
             )}
 
-
             {hoveredIndex === index && (
               <button className="delete-btn" onClick={(e) => { e.stopPropagation(); handleDelete(file.fileCID); }}>✕</button>
             )}
@@ -402,6 +722,7 @@ const Home = () => {
         ))}
       </div>
 
+      <UploadModal />
       <PreviewOverlay />
     </div>
   );
