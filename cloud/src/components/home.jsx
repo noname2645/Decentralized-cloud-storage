@@ -14,6 +14,7 @@ import jpeg from "../assets/Images/jpeg.png";
 import pdf from "../assets/Images/pdf.png";
 import jpg from "../assets/Images/jpg.png";
 import png from "../assets/Images/png-file.png";
+import { encryptFile, decryptFile } from "./aesUtils.js";
 
 const Home = () => {
   const [files, setFiles] = useState([]);
@@ -129,13 +130,33 @@ const Home = () => {
         (file) => file.metadata?.keyvalues?.userId === userId
       );
 
-      const files = filtered.map((file) => ({
-        fileCID: file.ipfs_pin_hash,
-        fileName: file.metadata?.keyvalues?.name || file.metadata?.name || file.file_name,
-        type: file.metadata?.keyvalues?.type || "unknown",
-      }));
+      const files = await Promise.all(filtered.map(async (file) => {
+        const fileCID = file.ipfs_pin_hash;
+        const type = file.metadata?.keyvalues?.type || "unknown";
 
+        let previewURL = null;
+
+        if (type.startsWith("image/") || type.startsWith("video/") || type === "application/pdf") {
+          try {
+            const res = await fetch(`https://gateway.pinata.cloud/ipfs/${fileCID}`);
+            const encryptedText = await res.text();
+            const decryptedBytes = decryptFile(encryptedText);
+            const blob = new Blob([decryptedBytes], { type });
+            previewURL = URL.createObjectURL(blob);
+          } catch (err) {
+            console.error("Failed to generate preview for:", fileCID, err);
+          }
+        }
+
+        return {
+          fileCID,
+          fileName: file.metadata?.keyvalues?.name || file.metadata?.name || file.file_name,
+          type,
+          previewURL,
+        };
+      }));
       setFiles(files);
+
     } catch (err) {
       console.error("Error fetching from Pinata:", err);
       setFiles([]);
@@ -169,14 +190,15 @@ const Home = () => {
 
     try {
       const originalBuffer = await file.arrayBuffer();
-      const paddedBuffer = new Uint8Array(originalBuffer.byteLength + 1);
-      paddedBuffer.set(new Uint8Array(originalBuffer), 0);
-      paddedBuffer[paddedBuffer.length - 1] = Math.floor(Math.random() * 256);
-      const modifiedBlob = new Blob([paddedBuffer], { type: file.type });
-      const modifiedFile = new File([modifiedBlob], file.name, { type: file.type });
+      const encryptedString = encryptFile(originalBuffer); // no key arg needed now
+
+      const encryptedBlob = new Blob([encryptedString], { type: "text/plain" });
+      const encryptedFile = new File([encryptedBlob], file.name + ".aes", { type: "text/plain" });
+
+
 
       const formData = new FormData();
-      formData.append("file", modifiedFile);
+      formData.append("file", encryptedFile);
       const metadata = JSON.stringify({
         name: file.name,
         keyvalues: {
@@ -241,14 +263,28 @@ const Home = () => {
     }
   };
 
-  const handlePreview = (file) => {
-    setPreview({
-      isOpen: true,
-      type: file.type,
-      content: file.fileCID,
-      fileName: file.fileName
-    });
+  const handlePreview = async (file) => {
+    try {
+      const res = await fetch(`https://gateway.pinata.cloud/ipfs/${file.fileCID}`);
+      const encryptedText = await res.text(); // because it's encrypted as base64 string
+
+      const decryptedBytes = decryptFile(encryptedText);
+
+      const blob = new Blob([decryptedBytes], { type: file.type }); // use original type
+      const url = URL.createObjectURL(blob);
+
+      setPreview({
+        isOpen: true,
+        type: file.type,
+        content: url,
+        fileName: file.fileName
+      });
+    } catch (err) {
+      console.error("Decryption failed:", err);
+      alert("Preview failed. Something went wrong.");
+    }
   };
+
 
   const closePreview = () => {
     setPreview({
@@ -265,16 +301,19 @@ const Home = () => {
     const getPreviewContent = () => {
       switch (true) {
         case preview.type?.startsWith('image/'):
-          return <img src={`https://gateway.pinata.cloud/ipfs/${preview.content}`} alt={preview.fileName} className="enlarged-image" />;
+          return <img src={preview.content} alt={preview.fileName} className="enlarged-image" />;
+
         case preview.type?.startsWith('video/'):
-          return <video src={`https://gateway.pinata.cloud/ipfs/${preview.content}`} controls className="enlarged-image" autoPlay />;
+          return <video src={preview.content} controls className="enlarged-image" autoPlay />;
+
         case preview.type === 'application/pdf':
-          return <iframe src={`https://gateway.pinata.cloud/ipfs/${preview.content}`} title={preview.fileName} className="enlarged-image pdf-viewer" />;
+          return <iframe src={preview.content} title={preview.fileName} className="enlarged-image pdf-viewer" />;
+
         default:
           return (
             <div className="preview-error">
               <p>Preview not available for this file type</p>
-              <a href={`https://gateway.pinata.cloud/ipfs/${preview.content}`} target="_blank" rel="noopener noreferrer" className="download-link">Download File</a>
+              <a href={preview.content} alt={preview.fileName} target="_blank" rel="noopener noreferrer" className="download-link">Download File</a>
             </div>
           );
       }
@@ -343,13 +382,18 @@ const Home = () => {
               <span id="file-name">{file.fileName}</span>
             </div>
 
-            {file.type.startsWith("image/") && <img src={`https://gateway.pinata.cloud/ipfs/${file.fileCID}`} alt="Uploaded" className="file-image" />}
-            {file.type === "video/mp4" && <video src={`https://gateway.pinata.cloud/ipfs/${file.fileCID}`} muted loop autoPlay playsInline className="file-video" />}
+            {file.type.startsWith("image/") && (
+              <img src={file.previewURL} alt="Uploaded" className="file-image" />
+            )}
+            {file.type === "video/mp4" && (
+              <video src={file.previewURL} muted loop autoPlay playsInline className="file-video" />
+            )}
             {file.type === "application/pdf" && (
               <div className="pdf-preview">
-                <div className="pdf-thumbnail"><img src={pdf} alt="PDF" /></div>
+                <iframe src={file.previewURL} title="PDF" className="file-pdf" />
               </div>
             )}
+
 
             {hoveredIndex === index && (
               <button className="delete-btn" onClick={(e) => { e.stopPropagation(); handleDelete(file.fileCID); }}>✕</button>
