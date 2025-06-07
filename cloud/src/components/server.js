@@ -165,8 +165,8 @@ app.get('/file/:id', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);
-  console.log(`Available endpoints:`);
-  console.log(`POST /upload - Upload file`);
-  console.log(`GET  /files  - List all files`);
-  console.log(`GET  /file/:id - Get specific file`);
+  // console.log(`Available endpoints:`);
+  // console.log(`POST /upload - Upload file`);
+  // console.log(`GET  /files  - List all files`);
+  // console.log(`GET  /file/:id - Get specific file`);
 });

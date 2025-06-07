@@ -17,11 +17,13 @@
     "dotenv": "^16.5.0",
     "ethers": "^5.8.0",
     "firebase": "^11.5.0",
+    "lucide-react": "^0.513.0",
     "multiformats": "^13.3.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.3.0",
     "react-tsparticles": "^2.12.2",
+    "react-window": "^1.8.11",
     "three": "^0.175.0",
     "web3": "^4.16.0"
   },

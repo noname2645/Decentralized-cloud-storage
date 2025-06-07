@@ -19,13 +19,13 @@ import { encryptFile, decryptFile } from "./aesUtils.js";
 const Home = () => {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [filesLoading, setFilesLoading] = useState(true); // New state for files loading
   const [user, setUser] = useState(null);
   const mountRef = useRef(null);
   const [hoveredIndex, setHoveredIndex] = useState(null);
   const [uploadStatus, setUploadStatus] = useState({
     isOpen: false,
     stage: 'encrypting', // 'encrypting', 'uploading', 'blockchain', 'success'
-    progress: 0,
     fileName: ''
   });
   const [preview, setPreview] = useState({
@@ -114,13 +114,20 @@ const Home = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser) fetchPinnedFilesFromPinata(currentUser.uid);
+      if (currentUser) {
+        setFilesLoading(true); // Start loading when user is authenticated
+        fetchPinnedFilesFromPinata(currentUser.uid);
+      } else {
+        setFilesLoading(false); // Stop loading if no user
+      }
     });
     return () => unsubscribe();
   }, []);
 
   const fetchPinnedFilesFromPinata = async (userId) => {
     try {
+      setFilesLoading(true); // Set loading to true when fetching starts
+      
       const res = await axios.get("https://api.pinata.cloud/data/pinList", {
         headers: {
           pinata_api_key: pinataConfig.pinataApiKey,
@@ -161,11 +168,14 @@ const Home = () => {
           previewURL,
         };
       }));
+      
       setFiles(files);
+      setFilesLoading(false); // Set loading to false when all files are loaded
 
     } catch (err) {
       console.error("Error fetching from Pinata:", err);
       setFiles([]);
+      setFilesLoading(false); // Set loading to false even on error
     }
   };
 
@@ -186,103 +196,37 @@ const Home = () => {
     document.body.removeChild(input);
   };
 
-  const simulateProgress = (stage, duration) => {
-    return new Promise((resolve) => {
-      // Set initial state without progress jump
-      setUploadStatus(prev => ({
-        ...prev,
-        stage,
-        progress: 0 // Start at 0, not jumping to any value
-      }));
-
-      let progress = 0;
-      const totalSteps = 100;
-      const stepDuration = duration / totalSteps;
-
-      const updateProgress = () => {
-        progress += 1;
-
-        setUploadStatus(prev => ({
-          ...prev,
-          progress: Math.min(progress, 100)
-        }));
-
-        if (progress >= 100) {
-          // Small delay before resolving to show 100% completion
-          setTimeout(resolve, 150);
-        } else {
-          setTimeout(updateProgress, stepDuration);
-        }
-      };
-
-      // Start the progress animation with a small delay to prevent jitter
-      setTimeout(updateProgress, 50);
-    });
-  };
-
-  // Alternative smoother version using requestAnimationFrame
-  const simulateProgressSmooth = (stage, duration) => {
-    return new Promise((resolve) => {
-      setUploadStatus(prev => ({
-        ...prev,
-        stage,
-        progress: 0
-      }));
-
-      const startTime = performance.now();
-
-      const animate = (currentTime) => {
-        const elapsed = currentTime - startTime;
-        const progress = Math.min((elapsed / duration) * 100, 100);
-
-        setUploadStatus(prev => ({
-          ...prev,
-          progress: Math.round(progress)
-        }));
-
-        if (progress >= 100) {
-          setTimeout(resolve, 100);
-        } else {
-          requestAnimationFrame(animate);
-        }
-      };
-
-      // Start animation with small delay to prevent jitter
-      setTimeout(() => requestAnimationFrame(animate), 50);
-    });
-  };
-
-  // Updated handleUpload function with better stage management
-  // Option 1: Completely remove delays between stages
-const handleUpload = async (file) => {
+  const handleUpload = async (file) => {
   if (!file || !user) {
     alert("Please log in first.");
     return;
   }
 
   setLoading(true);
-
-  // Initialize modal with first stage
-  setUploadStatus({
-    isOpen: true,
-    stage: 'encrypting',
-    progress: 100, // Set to 100% immediately
-    fileName: file.name
-  });
+  let fileCID = null; // Track the CID for potential rollback
 
   try {
-    // Stage 1: Encrypting - Complete immediately
+    // Step 1: Encrypting
+    setUploadStatus({
+      isOpen: true,
+      stage: 'encrypting',
+      fileName: file.name
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
     const originalBuffer = await file.arrayBuffer();
     const encryptedString = encryptFile(originalBuffer);
     const encryptedBlob = new Blob([encryptedString], { type: "text/plain" });
     const encryptedFile = new File([encryptedBlob], file.name + ".aes", { type: "text/plain" });
 
-    // Stage 2: Uploading to IPFS - Show immediately after encryption
+    // Step 2: Uploading to IPFS
     setUploadStatus(prev => ({
       ...prev,
-      stage: 'uploading',
-      progress: 100
+      stage: 'uploading'
     }));
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     const formData = new FormData();
     formData.append("file", encryptedFile);
@@ -307,20 +251,42 @@ const handleUpload = async (file) => {
       },
     });
 
-    const fileCID = response.data.IpfsHash;
+    fileCID = response.data.IpfsHash; // Store CID for potential rollback
 
-    // Stage 3: Blockchain processing - Show immediately after upload
+    // Step 3: Blockchain
     setUploadStatus(prev => ({
       ...prev,
-      stage: 'blockchain',
-      progress: 100
+      stage: 'blockchain'
     }));
 
-    await axios.post("http://localhost:3001/upload", {
-      cid: fileCID,
-      size: file.size
-    });
+    await new Promise(resolve => setTimeout(resolve, 1200));
 
+    // Try blockchain operation first
+    try {
+      await axios.post("http://localhost:3001/upload", {
+        cid: fileCID,
+        size: file.size
+      });
+    } catch (blockchainError) {
+      // If blockchain fails, rollback the Pinata upload
+      console.error("Blockchain transaction failed:", blockchainError);
+      
+      try {
+        await axios.delete(`https://api.pinata.cloud/pinning/unpin/${fileCID}`, {
+          headers: {
+            pinata_api_key: pinataConfig.pinataApiKey,
+            pinata_secret_api_key: pinataConfig.pinataSecretApiKey,
+          },
+        });
+        console.log("Successfully rolled back Pinata upload");
+      } catch (rollbackError) {
+        console.error("Failed to rollback Pinata upload:", rollbackError);
+      }
+      
+      throw new Error("Blockchain transaction failed. Upload cancelled.");
+    }
+
+    // Only add to Firestore if blockchain succeeds
     await addDoc(collection(db, "files"), {
       userId: user.uid,
       fileCID,
@@ -328,19 +294,16 @@ const handleUpload = async (file) => {
       timestamp: new Date(),
     });
 
-    // Stage 4: Success - Show immediately after blockchain
+    // Step 4: Success
     setUploadStatus(prev => ({
       ...prev,
-      stage: 'success',
-      progress: 100
+      stage: 'success'
     }));
 
-    // Auto close after 2.5 seconds (keep this delay for success message)
     setTimeout(() => {
       setUploadStatus({
         isOpen: false,
         stage: 'encrypting',
-        progress: 0,
         fileName: ''
       });
       setLoading(false);
@@ -354,130 +317,12 @@ const handleUpload = async (file) => {
     setUploadStatus({
       isOpen: false,
       stage: 'encrypting',
-      progress: 0,
       fileName: ''
     });
     setLoading(false);
   }
 };
 
-// Option 2: Keep minimal delays (200ms) for visual feedback
-const handleUploadWithMinimalDelays = async (file) => {
-  if (!file || !user) {
-    alert("Please log in first.");
-    return;
-  }
-
-  setLoading(true);
-
-  // Initialize modal with first stage
-  setUploadStatus({
-    isOpen: true,
-    stage: 'encrypting',
-    progress: 100,
-    fileName: file.name
-  });
-
-  try {
-    // Stage 1: Encrypting
-    const originalBuffer = await file.arrayBuffer();
-    const encryptedString = encryptFile(originalBuffer);
-    const encryptedBlob = new Blob([encryptedString], { type: "text/plain" });
-    const encryptedFile = new File([encryptedBlob], file.name + ".aes", { type: "text/plain" });
-
-    // Brief pause to show encryption completed
-    await new Promise(resolve => setTimeout(resolve, 200));
-
-    // Stage 2: Uploading to IPFS
-    setUploadStatus(prev => ({
-      ...prev,
-      stage: 'uploading',
-      progress: 100
-    }));
-
-    const formData = new FormData();
-    formData.append("file", encryptedFile);
-    const metadata = JSON.stringify({
-      name: file.name,
-      keyvalues: {
-        userId: user.uid,
-        name: file.name,
-        type: file.type || "unknown",
-        timestamp: `${Date.now()}-${Math.floor(Math.random() * 100000)}`
-      },
-    });
-    const options = JSON.stringify({ cidVersion: 1 });
-    formData.append("pinataMetadata", metadata);
-    formData.append("pinataOptions", options);
-
-    const response = await axios.post("https://api.pinata.cloud/pinning/pinFileToIPFS", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-        pinata_api_key: pinataConfig.pinataApiKey,
-        pinata_secret_api_key: pinataConfig.pinataSecretApiKey,
-      },
-    });
-
-    const fileCID = response.data.IpfsHash;
-
-    // Brief pause to show upload completed
-    await new Promise(resolve => setTimeout(resolve, 200));
-
-    // Stage 3: Blockchain processing
-    setUploadStatus(prev => ({
-      ...prev,
-      stage: 'blockchain',
-      progress: 100
-    }));
-
-    await axios.post("http://localhost:3001/upload", {
-      cid: fileCID,
-      size: file.size
-    });
-
-    await addDoc(collection(db, "files"), {
-      userId: user.uid,
-      fileCID,
-      type: file.type || "unknown",
-      timestamp: new Date(),
-    });
-
-    // Brief pause to show blockchain completed
-    await new Promise(resolve => setTimeout(resolve, 200));
-
-    // Stage 4: Success
-    setUploadStatus(prev => ({
-      ...prev,
-      stage: 'success',
-      progress: 100
-    }));
-
-    // Auto close after 2.5 seconds
-    setTimeout(() => {
-      setUploadStatus({
-        isOpen: false,
-        stage: 'encrypting',
-        progress: 0,
-        fileName: ''
-      });
-      setLoading(false);
-    }, 2500);
-
-
-      fetchPinnedFilesFromPinata(user.uid);
-
-    } catch (error) {
-      console.error("Upload failed:", error);
-      alert("Upload failed: " + error.message);
-      setUploadStatus({
-        isOpen: false,
-        stage: 'encrypting',
-        progress: 0,
-        fileName: ''
-      });
-      setLoading(false);
-    }
-  };
 
   const handleDelete = async (fileCID) => {
     try {
@@ -528,6 +373,33 @@ const handleUploadWithMinimalDelays = async (file) => {
       fileName: ''
     });
   };
+
+  // New Files Loading Modal Component
+  const FilesLoadingModal = () => {
+    if (!filesLoading) return null;
+
+    return (
+      <div className="files-loading-modal-overlay">
+        <div className="files-loading-modal">
+          <div className="files-loading-content">
+            <div className="loading-spinner">
+              <div className="spinner-ring"></div>
+              <div className="spinner-ring"></div>
+              <div className="spinner-ring"></div>
+            </div>
+            <h3 className="loading-title">Loading Your Files</h3>
+            <p className="loading-description">Fetching and decrypting your secure files...</p>
+            <div className="loading-dots">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const UploadModal = () => {
     if (!uploadStatus.isOpen) return null;
 
@@ -558,7 +430,29 @@ const handleUploadWithMinimalDelays = async (file) => {
           return {
             title: 'Upload Complete!',
             icon: '✅',
-            description: 'Your file has been successfully uploaded and secured.',
+            description: (
+              <div style={{ textAlign: 'left', marginTop: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ marginRight: '8px' }}>🔐</span>
+                  <span>File Encryption</span>
+                  <span style={{ marginLeft: 'auto', color: '#96ceb4' }}>✅</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ marginRight: '8px' }}>🚀</span>
+                  <span>IPFS Upload</span>
+                  <span style={{ marginLeft: 'auto', color: '#96ceb4' }}>✅</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ marginRight: '8px' }}>⛓️</span>
+                  <span>Blockchain Processing</span>
+                  <span style={{ marginLeft: 'auto', color: '#96ceb4' }}>✅</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', marginTop: '15px', padding: '10px', backgroundColor: 'rgba(150, 206, 180, 0.1)', borderRadius: '5px' }}>
+                  <span style={{ marginRight: '8px' }}>🎉</span>
+                  <span style={{ fontWeight: 'bold' }}>Your file has been successfully uploaded and secured!</span>
+                </div>
+              </div>
+            ),
             color: '#96ceb4'
           };
         default:
@@ -584,21 +478,14 @@ const handleUploadWithMinimalDelays = async (file) => {
             </div>
 
             <h3 className="upload-title">{stageInfo.title}</h3>
-            <p className="upload-description">{stageInfo.description}</p>
-            <p className="upload-filename">{uploadStatus.fileName}</p>
-
-            <div className="upload-progress-container">
-              <div className="upload-progress-bar">
-                <div
-                  className="upload-progress-fill"
-                  style={{
-                    width: `${uploadStatus.progress}%`,
-                    backgroundColor: stageInfo.color
-                  }}
-                ></div>
-              </div>
-              <span className="upload-progress-text">{uploadStatus.progress}%</span>
+            <div className="upload-description">
+              {typeof stageInfo.description === 'string' ? (
+                <p>{stageInfo.description}</p>
+              ) : (
+                stageInfo.description
+              )}
             </div>
+            <p className="upload-filename">{uploadStatus.fileName}</p>
 
             {uploadStatus.stage === 'success' && (
               <div className="upload-success-animation">
@@ -722,6 +609,7 @@ const handleUploadWithMinimalDelays = async (file) => {
         ))}
       </div>
 
+      <FilesLoadingModal />
       <UploadModal />
       <PreviewOverlay />
     </div>

@@ -8,6 +8,7 @@ import Features from './components/Features';
 import Aboutus from './components/AboutUs';
 import Casestudy from './components/CaseStudy';
 import Documentation from './components/Documentation';
+import ForgotPassword from './components/forgotpass';
 
 
 
@@ -44,6 +45,10 @@ const router = createBrowserRouter([
   {
     path: "/doc",
     element: <Documentation />, 
+  },
+   {
+    path: "/forgotpass",
+    element: <ForgotPassword />, 
   }
 ]);
 
