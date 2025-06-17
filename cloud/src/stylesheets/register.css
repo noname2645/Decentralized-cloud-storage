@@ -42,30 +42,9 @@
     background: transparent;
 }
 
-/* Animated title dots */
-.register-title::before,
-.register-title::after {
-    position: absolute;
-    content: "";
-    height: 5px;
-    width: 5px;
-    border-radius: 50%;
-    left: 0;
-    background-color: #00bfff;
-    margin-left: 103px;
-    margin-bottom: 40px;
-}
 
-.register-title::before {
-    width: 18px;
-    height: 18px;
-}
 
-.register-title::after {
-    width: 18px;
-    height: 18px;
-    animation: pulse 1s linear infinite;
-}
+
 
 /* Form Message and Sign In link */
 .register-message,

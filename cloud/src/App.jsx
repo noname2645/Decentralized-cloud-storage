@@ -8,6 +8,7 @@ import Features from './components/Features';
 import Aboutus from './components/AboutUs';
 import Casestudy from './components/CaseStudy';
 import Documentation from './components/Documentation';
+import ForgotPassword from './components/forgotpass';
 
 
 
@@ -44,23 +45,14 @@ const router = createBrowserRouter([
   {
     path: "/doc",
     element: <Documentation />, 
+  },
+   {
+    path: "/forgotpass",
+    element: <ForgotPassword />, 
   }
 ]);
 
 const App = () => {
-  useEffect(() => {
-    const preventRightClick = (e) => {
-      e.preventDefault();
-    };
-
-    // Attach the event listener to the whole document
-    document.addEventListener('contextmenu', preventRightClick);
-
-    // Clean up the event listener when the component unmounts
-    return () => {
-      document.removeEventListener('contextmenu', preventRightClick);
-    };
-  }, []); // Empty dependency array ensures this only runs on mount/unmount
 
   return (
     // Wrap your app in RouterProvider to handle routing

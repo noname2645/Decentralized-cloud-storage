@@ -1,14 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-  GoogleAuthProvider,
-  signInWithPopup,
-  setPersistence,
-  browserSessionPersistence,
-} from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, setPersistence, browserSessionPersistence, } from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
 import * as THREE from 'three';
 import { firebaseConfig } from '../config.js';
@@ -52,7 +45,7 @@ const Login = () => {
       }
     }
   };
-  
+
   // Handle Google Sign In
   const handleGoogleSignIn = async () => {
     setErrorMessage(""); // Clear any previous error
@@ -68,7 +61,7 @@ const Login = () => {
       setErrorMessage("Google sign-in failed. " + error.message);
     }
   };
-  
+
 
   // Three.js background effect
   React.useEffect(() => {
@@ -195,6 +188,12 @@ const Login = () => {
               onChange={(e) => setPassword(e.target.value)}
             />
           </label>
+          <p>
+            <Link to="/forgotpass" style={{ color: "#00adb5" }}>
+              Forgot Password?
+            </Link>
+          </p>
+
 
           <button type="submit" className="register-submit">Login</button>
 
