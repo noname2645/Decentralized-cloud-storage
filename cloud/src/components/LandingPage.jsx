@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Shield, Database, Lock, Network, Globe, ArrowRight, Check, Star } from 'lucide-react';
+import { Shield, Database, Lock, Network, Globe, ArrowRight, Check, Star, Upload, Users, Zap } from 'lucide-react';
 import "../stylesheets/LandingPage.css";
 import { Link } from 'react-router-dom';
 
 const BlockchainLandingPage = () => {
   const [scrolled, setScrolled] = useState(false);
   const [activeFeature, setActiveFeature] = useState(0);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -20,6 +21,16 @@ const BlockchainLandingPage = () => {
       setActiveFeature(prev => (prev + 1) % 3);
     }, 3000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const progressInterval = setInterval(() => {
+      setUploadProgress(prev => {
+        if (prev >= 100) return 0;
+        return prev + Math.random() * 15;
+      });
+    }, 500);
+    return () => clearInterval(progressInterval);
   }, []);
 
   const features = [
@@ -43,25 +54,11 @@ const BlockchainLandingPage = () => {
     }
   ];
 
-  const testimonials = [
-    {
-      name: "Alex Chen",
-      role: "CTO, TechFlow",
-      quote: "The security and reliability of this decentralized storage solution exceeded our expectations. Our data has never been safer.",
-      rating: 5
-    },
-    {
-      name: "Sarah Mitchell",
-      role: "Lead Developer, DataSync",
-      quote: "Seamless integration with our existing infrastructure. The blockchain verification gives us complete confidence in data integrity.",
-      rating: 5
-    },
-    {
-      name: "Marcus Johnson",
-      role: "Security Architect, CyberGuard",
-      quote: "Finally, a storage solution that doesn't compromise on security or performance. The decentralized approach is revolutionary.",
-      rating: 5
-    }
+  const benefits = [
+    "Zero single point of failure",
+    "99.99% data availability",
+    "Quantum-resistant encryption",
+    "Global edge distribution"
   ];
 
   return (
@@ -84,9 +81,9 @@ const BlockchainLandingPage = () => {
           </div>
           
           <div className="nav-links">
-            <a href="#features" className="nav-link">Features</a>
-            <a href="#about" className="nav-link">About</a>
-            <a href="#docs" className="nav-link">Docs</a>
+            <Link to="/features" className="nav-link">Features</Link>
+            <Link to="/aboutus" className="nav-link">About</Link>
+            <Link to="/doc" className="nav-link">Docs</Link>
           </div>
           
           <div className="nav-buttons">
@@ -120,8 +117,8 @@ const BlockchainLandingPage = () => {
               </div>
               
               <div className="hero-buttons">
-                <a href="#case-study" className="primary-btn">
-                  <span>View Case Study</span>
+                <a href="#features" className="primary-btn">
+                  <span>Get Started</span>
                   <ArrowRight className="btn-icon" />
                 </a>
                 <button className="secondary-btn">
@@ -147,29 +144,54 @@ const BlockchainLandingPage = () => {
             
             <div className="hero-visual">
               <div className="visual-container">
-                <div className="visual-card">
-                  <div className="visual-grid">
-                    {[...Array(9)].map((_, i) => (
-                      <div 
-                        key={i} 
-                        className={`visual-block visual-block-${i % 3}`}
-                        style={{animationDelay: `${i * 0.2}s`}}
-                      ></div>
-                    ))}
+                <div className="dashboard-card">
+                  <div className="dashboard-header">
+                    <div className="dashboard-title">
+                      <Database className="dashboard-icon" />
+                      <span>Storage Dashboard</span>
+                    </div>
+                    <div className="dashboard-status">
+                      <div className="status-dot status-active"></div>
+                      <span>Live</span>
+                    </div>
                   </div>
-                  <div className="visual-status">
-                    <div className="status-item">
-                      <div className="status-dot status-green"></div>
-                      <span className="status-text">Blockchain Network Active</span>
+                  
+                  <div className="upload-section">
+                    <div className="upload-area">
+                      <Upload className="upload-icon" />
+                      <p className="upload-text">Drop files here or click to upload</p>
+                      <div className="upload-progress">
+                        <div 
+                          className="progress-bar"
+                          style={{ width: `${uploadProgress}%` }}
+                        ></div>
+                      </div>
+                      <p className="upload-status">{Math.round(uploadProgress)}% uploaded</p>
                     </div>
-                    <div className="status-item">
-                      <div className="status-dot status-blue"></div>
-                      <span className="status-text">IPFS Nodes Synchronized</span>
+                  </div>
+
+                  <div className="storage-stats">
+                    <div className="stat-row">
+                      <span className="stat-label">Storage Used</span>
+                      <span className="stat-value">2.4 TB / 5 TB</span>
                     </div>
-                    <div className="status-item">
-                      <div className="status-dot status-purple"></div>
-                      <span className="status-text">Data Encrypted & Distributed</span>
+                    <div className="stat-row">
+                      <span className="stat-label">Files Stored</span>
+                      <span className="stat-value">12,847</span>
                     </div>
+                    <div className="stat-row">
+                      <span className="stat-label">Active Nodes</span>
+                      <span className="stat-value">247</span>
+                    </div>
+                  </div>
+
+                  <div className="benefits-list">
+                    {benefits.map((benefit, index) => (
+                      <div key={index} className="benefit-item">
+                        <Check className="check-icon" />
+                        <span>{benefit}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -180,7 +202,7 @@ const BlockchainLandingPage = () => {
       </section>
 
       {/* Features Section */}
-      <section className="features-section">
+      <section className="features-section" id="features">
         <div className="features-container">
           <div className="section-header">
             <h2 className="section-title">
@@ -216,31 +238,38 @@ const BlockchainLandingPage = () => {
         </div>
       </section>
 
-      {/* Testimonials Section */}
-      <section className="testimonials-section">
-        <div className="testimonials-container">
-          <div className="section-header">
-            <h2 className="section-title testimonials-title">
-              Trusted by Industry Leaders
-            </h2>
-            <p className="section-description">See what our clients say about our blockchain storage solution</p>
-          </div>
-          
-          <div className="testimonials-grid">
-            {testimonials.map((testimonial, index) => (
-              <div key={index} className="testimonial-card">
-                <div className="testimonial-rating">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star key={i} className="star-icon" />
-                  ))}
-                </div>
-                <p className="testimonial-quote">"{testimonial.quote}"</p>
-                <div className="testimonial-author">
-                  <div className="author-name">{testimonial.name}</div>
-                  <div className="author-role">{testimonial.role}</div>
-                </div>
+      {/* Metrics Section */}
+      <section className="metrics-section">
+        <div className="metrics-container">
+          <div className="metrics-grid">
+            <div className="metric-card">
+              <Users className="metric-icon metric-cyan" />
+              <div className="metric-content">
+                <div className="metric-number">50K+</div>
+                <div className="metric-label">Active Users</div>
               </div>
-            ))}
+            </div>
+            <div className="metric-card">
+              <Database className="metric-icon metric-purple" />
+              <div className="metric-content">
+                <div className="metric-number">1PB+</div>
+                <div className="metric-label">Data Stored</div>
+              </div>
+            </div>
+            <div className="metric-card">
+              <Network className="metric-icon metric-green" />
+              <div className="metric-content">
+                <div className="metric-number">500+</div>
+                <div className="metric-label">Global Nodes</div>
+              </div>
+            </div>
+            <div className="metric-card">
+              <Zap className="metric-icon metric-yellow" />
+              <div className="metric-content">
+                <div className="metric-number">99.99%</div>
+                <div className="metric-label">Availability</div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
