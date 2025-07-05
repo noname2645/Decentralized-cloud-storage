@@ -20,7 +20,7 @@ const DecentralizedStorage = () => {
     {
       id: 'encrypt',
       title: 'AES Encryption',
-      description: 'Files are encrypted with military-grade AES-256 encryption',
+      description: 'Files are encrypted with AES-256 encryption',
       color: '#34C759',
       details: 'Advanced Encryption Standard (AES) with 256-bit keys ensures your data remains completely secure. Each file gets a unique encryption key for maximum protection.'
     },
