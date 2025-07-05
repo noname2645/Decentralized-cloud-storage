@@ -5,11 +5,7 @@ import Login from './components/login';
 import Register from './components/register';
 import DecentralizedCloudStorage from './components/LandingPage';
 import Features from './components/Features';
-import Aboutus from './components/AboutUs';
-import Casestudy from './components/CaseStudy';
-import Documentation from './components/Documentation';
 import ForgotPassword from './components/forgotpass';
-
 
 
 // Create a router with defined routes
@@ -35,18 +31,6 @@ const router = createBrowserRouter([
     element: <Features />, 
   },
   {
-    path: "/case",
-    element: <Casestudy />, 
-  },
-  {
-    path: "/aboutus",
-    element: <Aboutus />, 
-  },
-  {
-    path: "/doc",
-    element: <Documentation />, 
-  },
-   {
     path: "/forgotpass",
     element: <ForgotPassword />, 
   }
