@@ -52,24 +52,24 @@ const BlockchainLandingPage = () => {
     return () => clearInterval(progressInterval);
   }, []);
 
-  const features = [
+const features = [
     {
       icon: <Shield className="w-8 h-8" />,
-      title: 'Quantum Encryption',
-      description: 'Military-grade security with post-quantum cryptography to future-proof your data against emerging threats.',
-      detail: 'AES-512 + Lattice-based encryption',
+      title: 'AES-256 Encryption',
+      description: 'Advanced Encryption Standard with 256-bit keys ensures your data remains secure with cryptographic protection.',
+      detail: 'Industry-standard encryption',
     },
     {
-      icon: <Cpu className="w-8 h-8" />,
-      title: 'Edge Computing',
-      description: 'Process data closer to the source with our distributed edge network for ultra-low latency performance.',
-      detail: '200+ edge locations worldwide',
+      icon: <Globe className="w-8 h-8" />,
+      title: 'IPFS Integration',
+      description: 'InterPlanetary File System creates a distributed, peer-to-peer network for storing and sharing data across the globe.',
+      detail: 'Decentralized file storage',
     },
     {
-      icon: <HardDrive className="w-8 h-8" />,
-      title: 'Persistent Storage',
-      description: 'Enterprise-grade storage infrastructure with 99.999999999% durability and instant global availability.',
-      detail: '11 nines durability guarantee',
+      icon: <Database className="w-8 h-8" />,
+      title: 'Blockchain Security',
+      description: 'Currently on ETH Sepolia test network, tamper-proof records with cryptographic verification of all transactions.',
+      detail: 'Immutable data integrity',
     },
   ];
 
@@ -176,7 +176,7 @@ const BlockchainLandingPage = () => {
                 </div>
                 <div className="dashboard-status">
                   <div className="status-dot status-active"></div>
-                  Operational
+                  Dummy Stats
                 </div>
               </div>
               <div className="metrics-grid">
@@ -234,13 +234,37 @@ const BlockchainLandingPage = () => {
             <p className="demo-description">
               See how Nebula outperforms traditional cloud providers in security, speed, and reliability.
             </p>
-            <button className="demo-button">
-              <Play className="w-5 h-5" />
-              <span>Watch demo</span>
-            </button>
+     
           </div>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="footer">
+        <div className="footer-container">
+          <div className="footer-content">
+            <div className="footer-brand">
+              <div className="footer-logo">
+                <Cloud className="w-6 h-6" />
+                <span className="footer-logo-text">Nebula</span>
+              </div>
+            </div>
+            
+            <div className="footer-info">
+              <p className="footer-credit">
+                Made with ❤️ by students of <span className="team-name">Nebula Team</span>
+              </p>
+              <div className="footer-details">
+                <span className="footer-year">© 2025</span>
+                <span className="footer-separator">•</span>
+                <span className="footer-project">Decentralized Cloud Storage</span>
+                <span className="footer-separator">•</span>
+                <span className="footer-version">v1.0.0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };

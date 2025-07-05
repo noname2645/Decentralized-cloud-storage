@@ -1,6 +1,6 @@
 import CryptoJS from "crypto-js";
 
-const SECRET_KEY = "superSecret123"; // 💥 same key for all ops
+const SECRET_KEY = "superSecret123"; 
 
 export const encryptFile = (arrayBuffer) => {
   const wordArray = CryptoJS.lib.WordArray.create(arrayBuffer);

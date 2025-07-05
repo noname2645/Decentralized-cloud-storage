@@ -20,7 +20,8 @@ import { encryptFile, decryptFile } from "./aesUtils.js";
 const Home = () => {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [filesLoading, setFilesLoading] = useState(true); // New state for files loading
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [user, setUser] = useState(null);
   const mountRef = useRef(null);
   const [hoveredIndex, setHoveredIndex] = useState(null);
@@ -115,20 +116,16 @@ const Home = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser) {
-        setFilesLoading(true); // Start loading when user is authenticated
+      if (currentUser && !initialLoadComplete) {
+        setShowWelcomeModal(true);
         fetchPinnedFilesFromPinata(currentUser.uid);
-      } else {
-        setFilesLoading(false); // Stop loading if no user
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [initialLoadComplete]);
 
   const fetchPinnedFilesFromPinata = async (userId) => {
     try {
-      setFilesLoading(true); // Set loading to true when fetching starts
-      
       const res = await axios.get("https://api.pinata.cloud/data/pinList", {
         headers: {
           pinata_api_key: pinataConfig.pinataApiKey,
@@ -171,12 +168,14 @@ const Home = () => {
       }));
       
       setFiles(files);
-      setFilesLoading(false); // Set loading to false when all files are loaded
+      setInitialLoadComplete(true);
+      setShowWelcomeModal(false);
 
     } catch (err) {
       console.error("Error fetching from Pinata:", err);
       setFiles([]);
-      setFilesLoading(false); // Set loading to false even on error
+      setInitialLoadComplete(true);
+      setShowWelcomeModal(false);
     }
   };
 
@@ -324,7 +323,6 @@ const Home = () => {
   }
 };
 
-
   const handleDelete = async (fileCID) => {
     try {
       await axios.delete(`https://api.pinata.cloud/pinning/unpin/${fileCID}`, {
@@ -375,26 +373,29 @@ const Home = () => {
     });
   };
 
-  // New Files Loading Modal Component
-  const FilesLoadingModal = () => {
-    if (!filesLoading) return null;
+  // New Welcome Modal Component
+  const WelcomeModal = () => {
+    if (!showWelcomeModal) return null;
 
     return (
-      <div className="files-loading-modal-overlay">
-        <div className="files-loading-modal">
-          <div className="files-loading-content">
-            <div className="loading-spinner">
-              <div className="spinner-ring"></div>
-              <div className="spinner-ring"></div>
-              <div className="spinner-ring"></div>
+      <div className="welcome-modal-overlay">
+        <div className="welcome-modal">
+          <div className="welcome-modal-content">
+            <div className="welcome-animation">
+              <div className="welcome-icon">
+                <div className="icon-glow"></div>
+                <span className="welcome-emoji">📁</span>
+              </div>
             </div>
-            <h3 className="loading-title">Loading Your Files</h3>
-            <p className="loading-description">Fetching and decrypting your secure files...</p>
-            <div className="loading-dots">
-              <span></span>
-              <span></span>
-              <span></span>
+            <h2 className="welcome-title">Welcome to Nebula</h2>         
+            <div className="welcome-loading">
+              <div className="loading-bar">
+                <div className="loading-progress"></div>
+              </div>
             </div>
+            <p className="welcome-description">
+              Please wait while your files are being loaded...
+            </p>
           </div>
         </div>
       </div>
@@ -610,7 +611,7 @@ const Home = () => {
         ))}
       </div>
 
-      <FilesLoadingModal />
+      <WelcomeModal />
       <UploadModal />
       <PreviewOverlay />
     </div>
