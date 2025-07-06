@@ -52,15 +52,6 @@ const DecentralizedStorage = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleStepClick = (index) => {
-    if (!isAnimating) {
-      setIsAnimating(true);
-      setTimeout(() => {
-        setCurrentStep(index);
-        setIsAnimating(false);
-      }, 300);
-    }
-  };
 
   return (
     <div className="storage-container">
