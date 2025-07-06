@@ -1,12 +1,9 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  define: {
-    'process.env': {},
-  },
-  resolve: {
-    alias: {
-      buffer: 'buffer/',
-    },
-  },
+  plugins: [react()],
+  base: './',
+  build: {
+    outDir: 'dist'
+  }
 });

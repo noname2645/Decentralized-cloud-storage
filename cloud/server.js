@@ -8,6 +8,17 @@ const contractABI = contractJson.abi;
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+const path = require('path');
+
+// Serve static frontend files from dist
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// Handle React routing fallback
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist/index.html'));
+});
+
+
 app.use(cors());
 app.use(express.json());
 
@@ -165,8 +176,4 @@ app.get('/file/:id', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);
-  // console.log(`Available endpoints:`);
-  // console.log(`POST /upload - Upload file`);
-  // console.log(`GET  /files  - List all files`);
-  // console.log(`GET  /file/:id - Get specific file`);
 });
