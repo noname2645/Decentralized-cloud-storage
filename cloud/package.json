@@ -28,7 +28,8 @@
     "react-tsparticles": "^2.12.2",
     "react-window": "^1.8.11",
     "three": "^0.175.0",
-    "web3": "^4.16.0"
+    "web3": "^4.16.0",
+    "vite": "^6.3.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
@@ -38,7 +39,6 @@
     "eslint": "^9.21.0",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.19",
-    "globals": "^15.15.0",
-    "vite": "^6.3.5"
+    "globals": "^15.15.0"
   }
 }
