@@ -1,0 +1,181 @@
+@import url('https://fonts.googleapis.com/css2?family=Afacad+Flux:wght@100..1000&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Merienda:wght@300..900&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
+
+/* Make CSS reset specific to form component */
+.form-container * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Rename form class to avoid collisions */
+.register-form {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    max-width: 350px;
+    padding: 20px;
+    border-radius: 20px;
+    position: absolute;
+    background-color: #1a1a1a;
+    color: #fff;
+    border: 1px solid #333;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 100; 
+    animation: slideInFromLeft 0.6s ease-out;
+}
+
+/* Update other selectors to match the new class name */
+.register-title {
+    font-size: 50px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #00bfff;
+    text-align: center;
+    background: transparent;
+}
+
+
+
+
+
+/* Form Message and Sign In link */
+.register-message,
+.register-signin {
+    font-size: 20px;
+    color: rgba(255, 255, 255, 0.7);
+    background: transparent;
+}
+
+.register-signin {
+    text-align: center;
+}
+
+.register-signin a {
+    color: #00bfff;
+    text-decoration: none;
+    background: transparent;
+}
+
+.register-signin a:hover {
+    text-decoration: underline royalblue;
+}
+
+/* Form Input Labels */
+.register-form label {
+    position: relative;
+    color: #fff;
+    width: 100%;
+    outline: 0;
+    border: 1px solid rgba(105, 105, 105, 0.397);
+    border-radius: 10px;
+}
+
+.register-form label input {
+    font-size: 20px;
+    letter-spacing: 2px;
+    padding: 10px;
+    width: 100%;
+    border: none;
+    background-color: transparent;
+    color: #fff;
+}
+
+.register-form label input::placeholder {
+    font-size: 18px;
+    letter-spacing: 2px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Submit Button */
+.register-submit {
+    border: none;
+    outline: none;
+    padding: 10px;
+    border-radius: 10px;
+    color: #000000;
+    font-size: 20px;
+    background-color: #00bfff;
+    transition: background-color 0.3s ease;
+    cursor: pointer;
+    width: 60%;
+    letter-spacing: 2px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.register-submit:hover {
+    background-color: #00bfff96;
+}
+
+.register-or {
+    letter-spacing: 2px;
+    background: transparent;
+}
+
+/* Google Sign Up Button */
+.register-google-btn {
+    display: flex;
+    align-items: center;
+    background-color: #0D1B4C;
+    color: white;
+    padding: 6px;
+    width: 100%;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    border-radius: 30px;
+    font-weight: bold;
+    border: 2px solid navy;
+}
+
+.register-google-btn:hover {
+    background-color: #022865;
+}
+
+.register-gimg {
+    height: 40px;
+    width: 40px;
+    margin-left: 25px;
+    background: transparent;
+}
+
+.register-gtext {
+    letter-spacing: 1px;
+    background: transparent;
+    font-size: 18px;
+    text-align: center;
+}
+
+/* Pulse Animation */
+@keyframes pulse {
+    from {
+        transform: scale(0.9);
+        opacity: 1;
+    }
+    to {
+        transform: scale(1.8);
+        opacity: 0;
+    }
+}
+
+/* Slide-in animation */
+/* Slide-in from left */
+@keyframes slideInFromLeft {
+    0% {
+      transform: translate(-120%, -50%);
+      opacity: 0;
+    }
+    100% {
+      transform: translate(-50%, -50%);
+      opacity: 1;
+    }
+  }
+  
