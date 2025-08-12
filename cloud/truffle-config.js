@@ -2,7 +2,7 @@ require('dotenv').config();
 const HDWalletProvider = require('@truffle/hdwallet-provider');
 
 const privateKey = process.env.PRIVATE_KEY;
-const BlastAPIKey = process.env.BLAST_API_KEY;
+const BlastAPIKey = process.env.BLAST_API_URL;
 
 module.exports = {
   networks: {
