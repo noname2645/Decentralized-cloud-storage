@@ -2,11 +2,11 @@
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import React, { useEffect, useRef, useState } from "react";
-import { db, auth } from "./config";
+import { db, auth } from "./config.js";
 import { collection, addDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import axios from "axios";
-import { pinataConfig } from "./config";
+import { pinataConfig } from "./config.js";
 import * as THREE from "three";
 import "../stylesheets/home.css";
 import audio from "../assets/Images/audio.png";
