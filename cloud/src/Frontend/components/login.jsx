@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { getAuth, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, setPersistence, browserSessionPersistence, } from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
 import * as THREE from 'three';
-import { firebaseConfig } from '../components/config.js';
+import { firebaseConfig } from './config';
 import Google from '../assets/Images/google.png';
 import "../Stylesheets/login.css";
 
