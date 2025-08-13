@@ -14,7 +14,7 @@ import { initializeApp } from 'firebase/app';
 import * as THREE from 'three';
 import { firebaseConfig } from '../components/config.js';
 import Google from '../assets/Images/google.png';
-import "../Stylesheets/register.css";
+import "../stylesheets/register.css";
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
