@@ -5,24 +5,139 @@ const express = require('express');
 const cors = require('cors');
 const { ethers } = require('ethers');
 
-// Try to load contract from multiple possible locations
-let contractABI;
-try {
-  // First try the original location
-  const contractJson = require(path.resolve(__dirname, '../../build/contracts/PinataStorage.json'));
-  contractABI = contractJson.abi;
-} catch (error) {
-  try {
-    // Try from Backend directory
-    const contractJson = require('./PinataStorage.json');
-    contractABI = contractJson.abi;
-  } catch (error2) {
-    console.error('Could not load contract ABI from either location');
-    console.error('Error 1:', error.message);
-    console.error('Error 2:', error2.message);
-    // You can either exit or define a fallback ABI
-  }
-}
+// Contract ABI (moved from config.js since it's in .gitignore)
+const contractABI = [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "fileId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "ipfsHash",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "uploader",
+          "type": "address"
+        }
+      ],
+      "name": "FileUploaded",
+      "type": "event"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "fileCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "files",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "ipfsHash",
+          "type": "string"
+        },
+        {
+          "internalType": "address",
+          "name": "uploader",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "_name",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "_ipfsHash",
+          "type": "string"
+        }
+      ],
+      "name": "uploadFile",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_fileId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getFile",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    }
+];
+
+console.log('✅ Contract ABI loaded successfully');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -34,6 +149,8 @@ app.use(express.json());
 const provider = new ethers.providers.JsonRpcProvider(process.env.BLAST_API_URL);
 const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 const contract = new ethers.Contract(process.env.CONTRACT_ADDRESS, contractABI, signer);
+
+console.log('✅ Ethers provider and contract initialized');
 
 // Create API router to separate API routes
 const apiRouter = express.Router();
