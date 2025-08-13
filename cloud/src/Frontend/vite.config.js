@@ -12,14 +12,15 @@ export default defineConfig({
     extensions: ['.js', '.jsx', '.json'] // Auto-resolve these extensions
   },
   build: {
-    outDir: '../dist', // Build output directory
-    emptyOutDir: true, // Clear the directory before build
+    outDir: 'dist', // ✅ relative path, stays inside Frontend
+    emptyOutDir: true,
     rollupOptions: {
       input: {
-        main: path.resolve(__dirname, 'index.html') // Entry point
+        main: path.resolve(__dirname, 'index.html')
       }
     }
   },
+
   server: {
     port: 3000,
     strictPort: true,
