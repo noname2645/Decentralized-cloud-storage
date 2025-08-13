@@ -5,8 +5,24 @@ const express = require('express');
 const cors = require('cors');
 const { ethers } = require('ethers');
 
-const contractJson = require(path.resolve(__dirname, '../../build/contracts/PinataStorage.json'));
-const contractABI = contractJson.abi;
+// Try to load contract from multiple possible locations
+let contractABI;
+try {
+  // First try the original location
+  const contractJson = require(path.resolve(__dirname, '../../build/contracts/PinataStorage.json'));
+  contractABI = contractJson.abi;
+} catch (error) {
+  try {
+    // Try from Backend directory
+    const contractJson = require('./PinataStorage.json');
+    contractABI = contractJson.abi;
+  } catch (error2) {
+    console.error('Could not load contract ABI from either location');
+    console.error('Error 1:', error.message);
+    console.error('Error 2:', error2.message);
+    // You can either exit or define a fallback ABI
+  }
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
