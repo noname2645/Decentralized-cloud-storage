@@ -45,12 +45,7 @@ const BlockchainLandingPage = () => {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    const progressInterval = setInterval(() => {
-      setUploadProgress((prev) => (prev >= 100 ? 0 : prev + Math.random() * 15));
-    }, 1000);
-    return () => clearInterval(progressInterval);
-  }, []);
+
 
 const features = [
     {
