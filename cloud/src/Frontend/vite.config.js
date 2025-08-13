@@ -12,7 +12,7 @@ export default defineConfig({
     extensions: ['.js', '.jsx', '.json'] // Auto-resolve these extensions
   },
   build: {
-    outDir: 'dist', // ✅ relative path, stays inside Frontend
+    outDir: 'dist', 
     emptyOutDir: true,
     rollupOptions: {
       input: {
