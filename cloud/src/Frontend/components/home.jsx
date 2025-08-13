@@ -48,6 +48,12 @@ const Home = () => {
     }
   };
 
+  // Auto-detect backend URL based on where frontend is running
+  const backendBaseURL = window.location.hostname === "localhost"
+    ? "http://localhost:3001"
+    : "https://your-backend-service.onrender.com"; // <-- put your Render backend URL here
+
+
   useEffect(() => {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#020210");
@@ -166,7 +172,7 @@ const Home = () => {
           previewURL,
         };
       }));
-      
+
       setFiles(files);
       setInitialLoadComplete(true);
       setShowWelcomeModal(false);
@@ -197,131 +203,132 @@ const Home = () => {
   };
 
   const handleUpload = async (file) => {
-  if (!file || !user) {
-    alert("Please log in first.");
-    return;
-  }
-
-  setLoading(true);
-  let fileCID = null; // Track the CID for potential rollback
-
-  try {
-    // Step 1: Encrypting
-    setUploadStatus({
-      isOpen: true,
-      stage: 'encrypting',
-      fileName: file.name
-    });
-
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    const originalBuffer = await file.arrayBuffer();
-    const encryptedString = encryptFile(originalBuffer);
-    const encryptedBlob = new Blob([encryptedString], { type: "text/plain" });
-    const encryptedFile = new File([encryptedBlob], file.name + ".aes", { type: "text/plain" });
-
-    // Step 2: Uploading to IPFS
-    setUploadStatus(prev => ({
-      ...prev,
-      stage: 'uploading'
-    }));
-
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    const formData = new FormData();
-    formData.append("file", encryptedFile);
-    const metadata = JSON.stringify({
-      name: file.name,
-      keyvalues: {
-        userId: user.uid,
-        name: file.name,
-        type: file.type || "unknown",
-        timestamp: `${Date.now()}-${Math.floor(Math.random() * 100000)}`
-      },
-    });
-    const options = JSON.stringify({ cidVersion: 1 });
-    formData.append("pinataMetadata", metadata);
-    formData.append("pinataOptions", options);
-
-    const response = await axios.post("https://api.pinata.cloud/pinning/pinFileToIPFS", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-        pinata_api_key: pinataConfig.pinataApiKey,
-        pinata_secret_api_key: pinataConfig.pinataSecretApiKey,
-      },
-    });
-
-    fileCID = response.data.IpfsHash; // Store CID for potential rollback
-
-    // Step 3: Blockchain
-    setUploadStatus(prev => ({
-      ...prev,
-      stage: 'blockchain'
-    }));
-
-    await new Promise(resolve => setTimeout(resolve, 1200));
-
-    // Try blockchain operation first
-    try {
-      await axios.post("http://localhost:3001/upload", {
-        cid: fileCID,
-        size: file.size
-      });
-    } catch (blockchainError) {
-      // If blockchain fails, rollback the Pinata upload
-      console.error("Blockchain transaction failed:", blockchainError);
-      
-      try {
-        await axios.delete(`https://api.pinata.cloud/pinning/unpin/${fileCID}`, {
-          headers: {
-            pinata_api_key: pinataConfig.pinataApiKey,
-            pinata_secret_api_key: pinataConfig.pinataSecretApiKey,
-          },
-        });
-        console.log("Successfully rolled back Pinata upload");
-      } catch (rollbackError) {
-        console.error("Failed to rollback Pinata upload:", rollbackError);
-      }
-      
-      throw new Error("Blockchain transaction failed. Upload cancelled.");
+    if (!file || !user) {
+      alert("Please log in first.");
+      return;
     }
 
-    // Only add to Firestore if blockchain succeeds
-    await addDoc(collection(db, "files"), {
-      userId: user.uid,
-      fileCID,
-      type: file.type || "unknown",
-      timestamp: new Date(),
-    });
+    setLoading(true);
+    let fileCID = null; // Track the CID for potential rollback
 
-    // Step 4: Success
-    setUploadStatus(prev => ({
-      ...prev,
-      stage: 'success'
-    }));
+    try {
+      // Step 1: Encrypting
+      setUploadStatus({
+        isOpen: true,
+        stage: 'encrypting',
+        fileName: file.name
+      });
 
-    setTimeout(() => {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      const originalBuffer = await file.arrayBuffer();
+      const encryptedString = encryptFile(originalBuffer);
+      const encryptedBlob = new Blob([encryptedString], { type: "text/plain" });
+      const encryptedFile = new File([encryptedBlob], file.name + ".aes", { type: "text/plain" });
+
+      // Step 2: Uploading to IPFS
+      setUploadStatus(prev => ({
+        ...prev,
+        stage: 'uploading'
+      }));
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const formData = new FormData();
+      formData.append("file", encryptedFile);
+      const metadata = JSON.stringify({
+        name: file.name,
+        keyvalues: {
+          userId: user.uid,
+          name: file.name,
+          type: file.type || "unknown",
+          timestamp: `${Date.now()}-${Math.floor(Math.random() * 100000)}`
+        },
+      });
+      const options = JSON.stringify({ cidVersion: 1 });
+      formData.append("pinataMetadata", metadata);
+      formData.append("pinataOptions", options);
+
+      const response = await axios.post("https://api.pinata.cloud/pinning/pinFileToIPFS", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          pinata_api_key: pinataConfig.pinataApiKey,
+          pinata_secret_api_key: pinataConfig.pinataSecretApiKey,
+        },
+      });
+
+      fileCID = response.data.IpfsHash; // Store CID for potential rollback
+
+      // Step 3: Blockchain
+      setUploadStatus(prev => ({
+        ...prev,
+        stage: 'blockchain'
+      }));
+
+      await new Promise(resolve => setTimeout(resolve, 1200));
+
+      // Try blockchain operation first
+      try {
+        await axios.post(`${backendBaseURL}/api/upload`, {
+          cid: fileCID,
+          size: file.size
+        });
+
+      } catch (blockchainError) {
+        // If blockchain fails, rollback the Pinata upload
+        console.error("Blockchain transaction failed:", blockchainError);
+
+        try {
+          await axios.delete(`https://api.pinata.cloud/pinning/unpin/${fileCID}`, {
+            headers: {
+              pinata_api_key: pinataConfig.pinataApiKey,
+              pinata_secret_api_key: pinataConfig.pinataSecretApiKey,
+            },
+          });
+          console.log("Successfully rolled back Pinata upload");
+        } catch (rollbackError) {
+          console.error("Failed to rollback Pinata upload:", rollbackError);
+        }
+
+        throw new Error("Blockchain transaction failed. Upload cancelled.");
+      }
+
+      // Only add to Firestore if blockchain succeeds
+      await addDoc(collection(db, "files"), {
+        userId: user.uid,
+        fileCID,
+        type: file.type || "unknown",
+        timestamp: new Date(),
+      });
+
+      // Step 4: Success
+      setUploadStatus(prev => ({
+        ...prev,
+        stage: 'success'
+      }));
+
+      setTimeout(() => {
+        setUploadStatus({
+          isOpen: false,
+          stage: 'encrypting',
+          fileName: ''
+        });
+        setLoading(false);
+      }, 2500);
+
+      fetchPinnedFilesFromPinata(user.uid);
+
+    } catch (error) {
+      console.error("Upload failed:", error);
+      alert("Upload failed: " + error.message);
       setUploadStatus({
         isOpen: false,
         stage: 'encrypting',
         fileName: ''
       });
       setLoading(false);
-    }, 2500);
-
-    fetchPinnedFilesFromPinata(user.uid);
-
-  } catch (error) {
-    console.error("Upload failed:", error);
-    alert("Upload failed: " + error.message);
-    setUploadStatus({
-      isOpen: false,
-      stage: 'encrypting',
-      fileName: ''
-    });
-    setLoading(false);
-  }
-};
+    }
+  };
 
   const handleDelete = async (fileCID) => {
     try {
@@ -332,7 +339,8 @@ const Home = () => {
         },
       });
 
-      await axios.post("http://localhost:3001/delete", { cid: fileCID });
+     await axios.post(`${backendBaseURL}/api/delete`, { cid: fileCID });
+
 
       alert("File deleted successfully.");
       setFiles(prev => prev.filter(f => f.fileCID !== fileCID));
@@ -387,7 +395,7 @@ const Home = () => {
                 <span className="welcome-emoji">📁</span>
               </div>
             </div>
-            <h2 className="welcome-title">Welcome to Nebula</h2>         
+            <h2 className="welcome-title">Welcome to Nebula</h2>
             <div className="welcome-loading">
               <div className="loading-bar">
                 <div className="loading-progress"></div>
