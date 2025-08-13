@@ -5,7 +5,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
-    "build": "cd ../Frontend && npm install && npm run build"
+    "build": "echo 'Installing backend dependencies...' && npm install && echo 'Building frontend...' && cd ../Frontend && npm install && npm run build",
+    "postinstall": "echo 'Backend dependencies installed successfully'"
   },
   "keywords": [],
   "author": "",
@@ -16,7 +17,8 @@
     "dotenv": "^17.2.1",
     "ethers": "^5.8.0",
     "express": "^5.1.0",
-    "path-to-regexp": "^8.2.0"
+    "path-to-regexp": "^8.2.0",
+    "fs": "^0.0.1-security"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
