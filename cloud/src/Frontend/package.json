@@ -7,7 +7,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start": "node server.js"
+    "start": "node server.js",
+    "debug": "ls -l components/ && echo 'File contents:' && cat components/config.js"
   },
   "dependencies": {
     "@mui/icons-material": "^7.0.2",
