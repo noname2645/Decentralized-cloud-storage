@@ -51,7 +51,7 @@ const Home = () => {
   // Auto-detect backend URL based on where frontend is running
   const backendBaseURL = window.location.hostname === "localhost"
     ? "http://localhost:3001"
-    : "https://your-backend-service.onrender.com"; // <-- put your Render backend URL here
+    : "https://decentralized-cloud-storage.onrender.com"; // <-- put your Render backend URL here
 
 
   useEffect(() => {
