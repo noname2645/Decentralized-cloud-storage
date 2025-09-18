@@ -7,7 +7,6 @@ import { collection, addDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import axios from "axios";
 import { pinataConfig } from "./config.js";
-import * as THREE from "three";
 import "../stylesheets/home.css";
 import audio from "../assets/Images/audio.png";
 import jpeg from "../assets/Images/jpeg.png";
@@ -54,70 +53,6 @@ const Home = () => {
   : "https://decentralized-cloud-storage.onrender.com";
 
 
-  useEffect(() => {
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#020210");
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 30;
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-    if (mountRef.current) {
-      mountRef.current.appendChild(renderer.domElement);
-    }
-
-    const particlesGeometry = new THREE.BufferGeometry();
-    const particleCount = 1600;
-    const positions = new Float32Array(particleCount * 3);
-    const colors = new Float32Array(particleCount * 3);
-    const color = new THREE.Color("#ffffff");
-
-    for (let i = 0; i < particleCount; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 1000;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 1500;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 2000;
-      colors[i * 3] = color.r;
-      colors[i * 3 + 1] = color.g;
-      colors[i * 3 + 2] = color.b;
-    }
-
-    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-    const particlesMaterial = new THREE.PointsMaterial({
-      size: 1.5,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.8,
-      blending: THREE.AdditiveBlending
-    });
-
-    const particles = new THREE.Points(particlesGeometry, particlesMaterial);
-    scene.add(particles);
-
-    const animate = () => {
-      requestAnimationFrame(animate);
-      particles.rotation.y += 0.0005;
-      renderer.render(scene, camera);
-    };
-    animate();
-
-    const handleResize = () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    };
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      if (mountRef.current && mountRef.current.contains(renderer.domElement)) {
-        mountRef.current.removeChild(renderer.domElement);
-      }
-      renderer.dispose();
-    };
-  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
