@@ -36,6 +36,162 @@ html, body {
   /* border: 2px solid white; */
 }
 
+/* Transaction Info Styles */
+.transaction-info {
+  padding: 8px 12px;
+  background: rgba(45, 156, 219, 0.1);
+  border-radius: 6px;
+  margin: 8px 0;
+  border: 1px solid rgba(45, 156, 219, 0.2);
+}
+
+.transaction-label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.transaction-link {
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+  color: #2d9cdb;
+  text-decoration: none;
+  word-break: break-all;
+  transition: color 0.2s ease;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transaction-link:hover {
+  color: #1a75bb;
+  text-decoration: underline;
+}
+
+/* Preview Modal Transaction Styles */
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+  background: #f8f9fa;
+}
+
+.preview-title {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.preview-content {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.preview-transaction-info {
+  padding: 20px;
+  border-top: 1px solid #eee;
+  background: #f8f9fa;
+}
+
+.transaction-section h4 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.transaction-hash-full {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.hash-label {
+  font-size: 14px;
+  color: #666;
+  font-weight: 600;
+}
+
+.transaction-link-full {
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  color: #2d9cdb;
+  text-decoration: none;
+  word-break: break-all;
+  padding: 10px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.transaction-link-full:hover {
+  color: #1a75bb;
+  background: #f8f9fa;
+  text-decoration: underline;
+}
+
+.transaction-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.copy-hash-btn, .view-explorer-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.copy-hash-btn {
+  background: #6c757d;
+  color: white;
+}
+
+.copy-hash-btn:hover {
+  background: #5a6268;
+}
+
+.view-explorer-btn {
+  background: #2d9cdb;
+  color: white;
+  display: inline-block;
+}
+
+.view-explorer-btn:hover {
+  background: #1a75bb;
+  color: white;
+}
+
+/* File card adjustments */
+.file-card {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.file-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Enlarged container adjustments for preview modal */
+.enlarged-container {
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  max-width: 90vw;
+}
+
 .welcome-text {
   font-size: 1.5rem;
   color: var(--text-light);
@@ -490,8 +646,8 @@ html, body {
 }
 
 .enlarged-image {
-  max-width: 95%;
-  max-height: 95%;
+  max-width: 70%;
+  max-height: 70%;
   border-radius: 12px;
   object-fit: contain;
   box-shadow: 0 20px 80px rgba(0, 0, 0, 0.7);

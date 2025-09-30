@@ -2,7 +2,7 @@ import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import React, { useEffect, useRef, useState } from "react";
 import { db, auth } from "./config.js";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import axios from "axios";
 import { pinataConfig } from "./config.js";
@@ -31,7 +31,8 @@ const Home = () => {
     isOpen: false,
     type: null,
     content: null,
-    fileName: ''
+    fileName: '',
+    transactionHash: '' // Add transaction hash to preview state
   });
 
   const navigate = useNavigate();
@@ -63,6 +64,19 @@ const Home = () => {
 
   const fetchPinnedFilesFromPinata = async (userId) => {
     try {
+      // First, get files from Firestore to get transaction hashes
+      const filesSnapshot = await getDocs(query(collection(db, "files"), where("userId", "==", userId)));
+      const firestoreFiles = {};
+      
+      filesSnapshot.forEach(doc => {
+        const data = doc.data();
+        firestoreFiles[data.fileCID] = {
+          transactionHash: data.transactionHash,
+          timestamp: data.timestamp
+        };
+      });
+
+      // Then get file details from Pinata
       const res = await axios.get("https://api.pinata.cloud/data/pinList", {
         headers: {
           pinata_api_key: pinataConfig.pinataApiKey,
@@ -81,6 +95,7 @@ const Home = () => {
       const files = await Promise.all(filtered.map(async (file) => {
         const fileCID = file.ipfs_pin_hash;
         const type = file.metadata?.keyvalues?.type || "unknown";
+        const firestoreData = firestoreFiles[fileCID] || {};
 
         let previewURL = null;
 
@@ -101,8 +116,13 @@ const Home = () => {
           fileName: file.metadata?.keyvalues?.name || file.metadata?.name || file.file_name,
           type,
           previewURL,
+          transactionHash: firestoreData.transactionHash, // Add transaction hash
+          timestamp: firestoreData.timestamp
         };
       }));
+
+      // Sort by timestamp (newest first)
+      files.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
 
       setFiles(files);
       setInitialLoadComplete(true);
@@ -146,7 +166,8 @@ const Home = () => {
     }
 
     setLoading(true);
-    let fileCID = null; // Track the CID for potential rollback
+    let fileCID = null;
+    let transactionHash = null; // Track transaction hash
 
     try {
       // Step 1: Encrypting
@@ -195,7 +216,7 @@ const Home = () => {
         },
       });
 
-      fileCID = response.data.IpfsHash; // Store CID for potential rollback
+      fileCID = response.data.IpfsHash;
       console.log('📤 Uploaded to IPFS, CID:', fileCID);
 
       // Step 3: Blockchain
@@ -208,11 +229,13 @@ const Home = () => {
 
       // Try blockchain operation first
       try {
-        await axios.post(`${backendBaseURL}/api/upload`, {
+        const blockchainResponse = await axios.post(`${backendBaseURL}/api/upload`, {
           cid: fileCID,
           size: file.size
         });
-        console.log('⛓️ Blockchain transaction successful');
+        
+        transactionHash = blockchainResponse.data.txHash; // Get transaction hash from backend
+        console.log('⛓️ Blockchain transaction successful, TX Hash:', transactionHash);
 
       } catch (blockchainError) {
         // If blockchain fails, rollback the Pinata upload
@@ -233,10 +256,11 @@ const Home = () => {
         throw new Error("Blockchain transaction failed. Upload cancelled.");
       }
 
-      // Only add to Firestore if blockchain succeeds
+      // Add to Firestore with transaction hash
       await addDoc(collection(db, "files"), {
         userId: user.uid,
         fileCID,
+        transactionHash, // Store transaction hash
         type: file.type || "unknown",
         timestamp: new Date(),
       });
@@ -310,7 +334,8 @@ const Home = () => {
         isOpen: true,
         type: file.type,
         content: url,
-        fileName: file.fileName
+        fileName: file.fileName,
+        transactionHash: file.transactionHash // Include transaction hash in preview
       });
     } catch (err) {
       console.error("❌ Preview failed:", err);
@@ -323,7 +348,8 @@ const Home = () => {
       isOpen: false,
       type: null,
       content: null,
-      fileName: ''
+      fileName: '',
+      transactionHash: ''
     });
   };
 
@@ -488,8 +514,53 @@ const Home = () => {
     return (
       <div className={`overlay ${preview.isOpen ? 'show' : ''}`} onClick={closePreview}>
         <div className="enlarged-container" onClick={e => e.stopPropagation()}>
-          {getPreviewContent()}
-          <button className="close-preview-btn" onClick={closePreview}>×</button>
+          <div className="preview-header">
+            <h3 className="preview-title">{preview.fileName}</h3>
+            <button className="close-preview-btn" onClick={closePreview}>×</button>
+          </div>
+          
+          <div className="preview-content">
+            {getPreviewContent()}
+          </div>
+
+          {/* Transaction Hash in Preview Modal */}
+          {preview.transactionHash && (
+            <div className="preview-transaction-info">
+              <div className="transaction-section">
+                <h4>Blockchain Transaction</h4>
+                <div className="transaction-hash-full">
+                  <span className="hash-label">Transaction Hash:</span>
+                  <a 
+                    href={`https://sepolia.etherscan.io/tx/${preview.transactionHash}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="transaction-link-full"
+                  >
+                    {preview.transactionHash}
+                  </a>
+                </div>
+                <div className="transaction-actions">
+                  <button 
+                    className="copy-hash-btn"
+                    onClick={() => {
+                      navigator.clipboard.writeText(preview.transactionHash);
+                      alert('Transaction hash copied to clipboard!');
+                    }}
+                  >
+                    Copy Hash
+                  </button>
+                  <a 
+                    href={`https://sepolia.etherscan.io/tx/${preview.transactionHash}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="view-explorer-btn"
+                  >
+                    View on Explorer
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -516,6 +587,11 @@ const Home = () => {
         console.warn('Unknown file type:', fileType);
         return jpeg;
     }
+  };
+
+  const formatTransactionHash = (hash) => {
+    if (!hash) return '';
+    return `${hash.slice(0, 8)}...${hash.slice(-6)}`;
   };
 
   return (
@@ -553,6 +629,23 @@ const Home = () => {
               <img src={getFileIcon(file.type)} alt="file type" />
               <span id="file-name">{file.fileName}</span>
             </div>
+
+            {/* Transaction Hash Display - Show full hash on hover */}
+            {file.transactionHash && (
+              <div className="transaction-info">
+                <div className="transaction-label">Transaction:</div>
+                <a 
+                  href={`https://testnet.blastscan.io/tx/${file.transactionHash}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="transaction-link"
+                  onClick={(e) => e.stopPropagation()}
+                  title={file.transactionHash} // Show full hash on hover
+                >
+                  {file.transactionHash}
+                </a>
+              </div>
+            )}
 
             {file.type.startsWith("image/") && file.previewURL && (
               <img src={file.previewURL} alt="Uploaded" className="file-image" />
