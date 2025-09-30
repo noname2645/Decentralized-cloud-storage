@@ -322,7 +322,7 @@ apiRouter.get('/file/:id', async (req, res) => {
   }
 });
 
-// 1. Mount API router FIRST - very important!
+// 1. Mount API router FIRST
 app.use('/api', apiRouter);
 
 // Frontend static files handling
@@ -353,9 +353,39 @@ if (fs.existsSync(frontendPath)) {
     }
   }));
 
-  // 3. SPA fallback - serve index.html for all non-API routes
-  app.get('*', (req, res) => {
+  // 3. Serve index.html for the root route
+  app.get('/', (req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
+  });
+
+  // 4. Simple SPA handling - manually define common routes
+  const spaRoutes = ['/upload', '/files', '/settings', '/profile', '/dashboard'];
+  
+  spaRoutes.forEach(route => {
+    app.get(route, (req, res) => {
+      res.sendFile(path.join(frontendPath, 'index.html'));
+    });
+  });
+
+  // 5. Final middleware for SPA - check if request is for API or static file
+  app.use((req, res, next) => {
+    // If it's an API request that wasn't handled, return 404
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    
+    // For all other non-API requests that aren't static files, serve index.html
+    const requestedFile = path.join(frontendPath, req.path);
+    fs.access(requestedFile, fs.constants.F_OK, (err) => {
+      if (err) {
+        // File doesn't exist, serve index.html for SPA routing
+        res.sendFile(path.join(frontendPath, 'index.html'));
+      } else {
+        // File exists, it should have been served by static middleware
+        // If we get here, it means static middleware didn't handle it, so send 404
+        res.status(404).send('File not found');
+      }
+    });
   });
 } else {
   console.log('⚠️  Frontend build not found at:', frontendPath);
