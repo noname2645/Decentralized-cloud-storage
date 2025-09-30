@@ -146,7 +146,8 @@ app.use(cors({
   origin: [
     'http://localhost:3000',
     'http://localhost:5173',
-    'https://decentralized-cloud-storage.onrender.com'
+    'https://decentralized-cloud-storage.onrender.com',
+    'https://nebulastorage.onrender.com'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -244,7 +245,7 @@ apiRouter.post('/upload', async (req, res) => {
 apiRouter.get('/files', async (req, res) => {
   try {
     const fileCount = await contract.fileCount();
-    console.log('📁 Total files:', fileCount.toString());
+    console.log('📊 Total files:', fileCount.toString());
 
     const files = [];
     for (let i = 0; i < fileCount; i++) {
@@ -322,7 +323,7 @@ apiRouter.get('/file/:id', async (req, res) => {
   }
 });
 
-// Mount API router
+// Mount API router BEFORE static files
 app.use('/api', apiRouter);
 
 // Check if frontend build exists and serve it
@@ -331,39 +332,32 @@ const fs = require('fs');
 
 if (fs.existsSync(frontendPath)) {
   console.log('✅ Frontend build found, serving static files...');
+  
   // Serve static files from the frontend build
   app.use(express.static(frontendPath));
 
-  // Catch-all handler for client-side routing (only for non-API routes)
-  app.use((req, res, next) => {
-    // If the request doesn't start with /api, serve the index.html
-    if (!req.url.startsWith('/api')) {
-      res.sendFile(path.join(frontendPath, 'index.html'));
-    } else {
-      next();
-    }
+  // CRITICAL: This catch-all handler MUST come last
+  // It handles all non-API routes and returns index.html for client-side routing
+  app.get('/*', (req, res) => {
+    res.sendFile(path.join(frontendPath, 'index.html'));
   });
 } else {
   console.log('⚠️  Frontend build not found at:', frontendPath);
-  console.log('📝 API-only mode: Only /api routes will work');
+  console.log('🔍 API-only mode: Only /api routes will work');
   
   // Serve a simple message for non-API routes
-  app.use((req, res, next) => {
-    if (!req.url.startsWith('/api')) {
-      res.send(`
-        <h1>Backend is running! 🚀</h1>
-        <p>Frontend build not found. Please build the frontend first:</p>
-        <ol>
-          <li>Navigate to the Frontend directory: <code>cd ../Frontend</code></li>
-          <li>Install dependencies: <code>npm install</code></li>
-          <li>Build the project: <code>npm run build</code></li>
-          <li>Restart this server</li>
-        </ol>
-        <p>API endpoints are available at <code>/api/*</code></p>
-      `);
-    } else {
-      next();
-    }
+  app.get('*', (req, res) => {
+    res.send(`
+      <h1>Backend is running! 🚀</h1>
+      <p>Frontend build not found. Please build the frontend first:</p>
+      <ol>
+        <li>Navigate to the Frontend directory: <code>cd ../Frontend</code></li>
+        <li>Install dependencies: <code>npm install</code></li>
+        <li>Build the project: <code>npm run build</code></li>
+        <li>Restart this server</li>
+      </ol>
+      <p>API endpoints are available at <code>/api/*</code></p>
+    `);
   });
 }
 
