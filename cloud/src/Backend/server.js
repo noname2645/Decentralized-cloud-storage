@@ -5,7 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const { ethers } = require('ethers');
 
-// Contract ABI (moved from config.js since it's in .gitignore)
+// Contract ABI
 const contractABI = [
     {
       "anonymous": false,
@@ -302,7 +302,6 @@ apiRouter.get('/file/:id', async (req, res) => {
   try {
     const fileId = parseInt(req.params.id);
     
-    // Validate that fileId is a valid number
     if (isNaN(fileId) || fileId < 0) {
       return res.status(400).json({ error: 'Invalid file ID' });
     }
@@ -323,30 +322,59 @@ apiRouter.get('/file/:id', async (req, res) => {
   }
 });
 
-// Mount API router BEFORE static files
+// Mount API router FIRST - very important!
 app.use('/api', apiRouter);
 
-// Check if frontend build exists and serve it
+// Frontend static files handling
 const frontendPath = path.join(__dirname, '../Frontend/dist');
 const fs = require('fs');
 
 if (fs.existsSync(frontendPath)) {
-  console.log('✅ Frontend build found, serving static files...');
+  console.log('✅ Frontend build found at:', frontendPath);
   
-  // Serve static files from the frontend build
-  app.use(express.static(frontendPath));
+  // Log the contents of the dist folder for debugging
+  const distContents = fs.readdirSync(frontendPath);
+  console.log('📁 Dist folder contents:', distContents);
+  
+  // Serve static files with proper options
+  app.use(express.static(frontendPath, {
+    maxAge: '1d',
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, filepath) => {
+      // Set proper content types
+      if (filepath.endsWith('.js')) {
+        res.setHeader('Content-Type', 'application/javascript');
+      } else if (filepath.endsWith('.css')) {
+        res.setHeader('Content-Type', 'text/css');
+      } else if (filepath.endsWith('.html')) {
+        res.setHeader('Content-Type', 'text/html');
+      }
+    }
+  }));
 
-  // CRITICAL: This catch-all handler MUST come last
-  // It handles all non-API routes and returns index.html for client-side routing
-  app.use((req, res) => {
-    res.sendFile(path.join(frontendPath, 'index.html'));
+  // SPA fallback - serve index.html for all non-file routes
+  app.get('*', (req, res, next) => {
+    // Don't serve index.html for actual file requests
+    const ext = path.extname(req.path);
+    if (ext) {
+      // If it has an extension but wasn't found, return 404
+      return res.status(404).send('File not found');
+    }
+    
+    // For routes without extensions, serve index.html
+    res.sendFile(path.join(frontendPath, 'index.html'), (err) => {
+      if (err) {
+        console.error('Error sending index.html:', err);
+        res.status(500).send('Error loading page');
+      }
+    });
   });
 } else {
   console.log('⚠️  Frontend build not found at:', frontendPath);
   console.log('🔍 API-only mode: Only /api routes will work');
   
-  // Serve a simple message for non-API routes
-  app.use((req, res) => {
+  app.get('*', (req, res) => {
     res.send(`
       <h1>Backend is running! 🚀</h1>
       <p>Frontend build not found. Please build the frontend first:</p>
@@ -363,10 +391,12 @@ if (fs.existsSync(frontendPath)) {
 
 // Error handling middleware (should be last)
 app.use((err, req, res, next) => {
-  console.error('Route Error:', err.message);
-  res.status(500).send('Internal Server Error');
+  console.error('Server Error:', err);
+  res.status(500).json({ error: 'Internal Server Error', details: err.message });
 });
 
 app.listen(PORT, () => {
-  console.log(`Server listening on http://localhost:${PORT}`);
+  console.log(`🚀 Server listening on http://localhost:${PORT}`);
+  console.log(`📍 Frontend path: ${frontendPath}`);
+  console.log(`🔌 API available at: http://localhost:${PORT}/api`);
 });
