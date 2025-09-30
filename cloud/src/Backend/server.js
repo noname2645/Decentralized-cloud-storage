@@ -354,7 +354,7 @@ if (fs.existsSync(frontendPath)) {
   }));
 
   // SPA fallback - serve index.html for all non-file routes
-  app.get('*', (req, res, next) => {
+  app.use((req, res, next) => {
     // Don't serve index.html for actual file requests
     const ext = path.extname(req.path);
     if (ext) {
@@ -374,7 +374,7 @@ if (fs.existsSync(frontendPath)) {
   console.log('⚠️  Frontend build not found at:', frontendPath);
   console.log('🔍 API-only mode: Only /api routes will work');
   
-  app.get('*', (req, res) => {
+  app.use((req, res) => {
     res.send(`
       <h1>Backend is running! 🚀</h1>
       <p>Frontend build not found. Please build the frontend first:</p>
