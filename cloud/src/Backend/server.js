@@ -338,7 +338,7 @@ if (fs.existsSync(frontendPath)) {
 
   // CRITICAL: This catch-all handler MUST come last
   // It handles all non-API routes and returns index.html for client-side routing
-  app.get('/*', (req, res) => {
+  app.use((req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
   });
 } else {
@@ -346,7 +346,7 @@ if (fs.existsSync(frontendPath)) {
   console.log('🔍 API-only mode: Only /api routes will work');
   
   // Serve a simple message for non-API routes
-  app.get('*', (req, res) => {
+  app.use((req, res) => {
     res.send(`
       <h1>Backend is running! 🚀</h1>
       <p>Frontend build not found. Please build the frontend first:</p>
