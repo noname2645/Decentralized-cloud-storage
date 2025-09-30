@@ -1,4 +1,3 @@
-// Home.js
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import React, { useEffect, useRef, useState } from "react";
@@ -14,7 +13,6 @@ import pdf from "../assets/Images/pdf.png";
 import jpg from "../assets/Images/jpg.png";
 import png from "../assets/Images/png-file.png";
 import { encryptFile, decryptFile } from "./aesUtils.js";
-
 
 const Home = () => {
   const [files, setFiles] = useState([]);
@@ -49,10 +47,8 @@ const Home = () => {
 
   // Auto-detect backend URL based on where frontend is running
   const backendBaseURL = window.location.hostname === "localhost"
-  ? "http://localhost:3001"
-  : "https://decentralized-cloud-storage.onrender.com";
-
-
+    ? "http://localhost:3001"
+    : "https://decentralized-cloud-storage.onrender.com";
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -123,11 +119,17 @@ const Home = () => {
   const handleFileSelect = () => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = "image/*,.pdf,video/mp4";
+    // More specific accept types for better compatibility
+    input.accept = "image/jpeg,image/png,image/gif,image/webp,image/jpg,.pdf,video/mp4,video/quicktime";
     input.className = "hidden-input";
 
     input.addEventListener("change", (e) => {
       if (e.target.files.length > 0) {
+        console.log('📁 Selected file:', {
+          name: e.target.files[0].name,
+          type: e.target.files[0].type,
+          size: e.target.files[0].size
+        });
         handleUpload(e.target.files[0]);
       }
     });
@@ -156,6 +158,7 @@ const Home = () => {
 
       await new Promise(resolve => setTimeout(resolve, 1500));
 
+      console.log('🔐 Starting encryption for:', file.name);
       const originalBuffer = await file.arrayBuffer();
       const encryptedString = encryptFile(originalBuffer);
       const encryptedBlob = new Blob([encryptedString], { type: "text/plain" });
@@ -193,6 +196,7 @@ const Home = () => {
       });
 
       fileCID = response.data.IpfsHash; // Store CID for potential rollback
+      console.log('📤 Uploaded to IPFS, CID:', fileCID);
 
       // Step 3: Blockchain
       setUploadStatus(prev => ({
@@ -208,6 +212,7 @@ const Home = () => {
           cid: fileCID,
           size: file.size
         });
+        console.log('⛓️ Blockchain transaction successful');
 
       } catch (blockchainError) {
         // If blockchain fails, rollback the Pinata upload
@@ -274,8 +279,7 @@ const Home = () => {
         },
       });
 
-     await axios.post(`${backendBaseURL}/api/delete`, { cid: fileCID });
-
+      await axios.post(`${backendBaseURL}/api/delete`, { cid: fileCID });
 
       alert("File deleted successfully.");
       setFiles(prev => prev.filter(f => f.fileCID !== fileCID));
@@ -287,13 +291,20 @@ const Home = () => {
 
   const handlePreview = async (file) => {
     try {
+      console.log('👀 Starting preview for:', file.fileName, 'Type:', file.type);
+      
       const res = await fetch(`https://gateway.pinata.cloud/ipfs/${file.fileCID}`);
       const encryptedText = await res.text();
+      
+      console.log('👀 Encrypted text retrieved, length:', encryptedText.length);
 
       const decryptedBytes = decryptFile(encryptedText);
+      console.log('👀 Decrypted bytes length:', decryptedBytes.length);
 
       const blob = new Blob([decryptedBytes], { type: file.type });
       const url = URL.createObjectURL(blob);
+      
+      console.log('👀 Blob created, URL:', url);
 
       setPreview({
         isOpen: true,
@@ -302,8 +313,8 @@ const Home = () => {
         fileName: file.fileName
       });
     } catch (err) {
-      console.error("Decryption failed:", err);
-      alert("Preview failed. Something went wrong.");
+      console.error("❌ Preview failed:", err);
+      alert("Preview failed: " + err.message);
     }
   };
 
@@ -485,16 +496,24 @@ const Home = () => {
   };
 
   const getFileIcon = (fileType) => {
+    console.log('📄 File type received:', fileType);
+    
     switch (true) {
-      case fileType?.startsWith('image/jpeg'):
+      case fileType?.includes('jpeg') || fileType?.includes('jpg'):
         return jpg;
-      case fileType?.startsWith('image/png'):
+      case fileType?.includes('png'):
         return png;
+      case fileType?.includes('gif'):
+      case fileType?.includes('webp'):
+      case fileType?.includes('bmp'):
+      case fileType?.startsWith('image/'):
+        return jpeg; // Use generic image icon for other image types
       case fileType?.startsWith('audio/'):
         return audio;
       case fileType === 'application/pdf':
         return pdf;
       default:
+        console.warn('Unknown file type:', fileType);
         return jpeg;
     }
   };
@@ -535,13 +554,13 @@ const Home = () => {
               <span id="file-name">{file.fileName}</span>
             </div>
 
-            {file.type.startsWith("image/") && (
+            {file.type.startsWith("image/") && file.previewURL && (
               <img src={file.previewURL} alt="Uploaded" className="file-image" />
             )}
-            {file.type === "video/mp4" && (
+            {file.type === "video/mp4" && file.previewURL && (
               <video src={file.previewURL} muted loop autoPlay playsInline className="file-video" />
             )}
-            {file.type === "application/pdf" && (
+            {file.type === "application/pdf" && file.previewURL && (
               <div className="pdf-preview">
                 <iframe src={file.previewURL} title="PDF" className="file-pdf" />
               </div>
