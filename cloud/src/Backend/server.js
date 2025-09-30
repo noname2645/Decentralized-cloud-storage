@@ -322,7 +322,7 @@ apiRouter.get('/file/:id', async (req, res) => {
   }
 });
 
-// Mount API router FIRST - very important!
+// 1. Mount API router FIRST - very important!
 app.use('/api', apiRouter);
 
 // Frontend static files handling
@@ -336,7 +336,7 @@ if (fs.existsSync(frontendPath)) {
   const distContents = fs.readdirSync(frontendPath);
   console.log('📁 Dist folder contents:', distContents);
   
-  // Serve static files with proper options
+  // 2. Serve static files
   app.use(express.static(frontendPath, {
     maxAge: '1d',
     etag: true,
@@ -353,22 +353,9 @@ if (fs.existsSync(frontendPath)) {
     }
   }));
 
-  // SPA fallback - serve index.html for all non-file routes
-  app.use((req, res, next) => {
-    // Don't serve index.html for actual file requests
-    const ext = path.extname(req.path);
-    if (ext) {
-      // If it has an extension but wasn't found, return 404
-      return res.status(404).send('File not found');
-    }
-    
-    // For routes without extensions, serve index.html
-    res.sendFile(path.join(frontendPath, 'index.html'), (err) => {
-      if (err) {
-        console.error('Error sending index.html:', err);
-        res.status(500).send('Error loading page');
-      }
-    });
+  // 3. SPA fallback - serve index.html for all non-API routes
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendPath, 'index.html'));
   });
 } else {
   console.log('⚠️  Frontend build not found at:', frontendPath);
