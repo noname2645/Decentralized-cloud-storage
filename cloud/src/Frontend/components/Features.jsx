@@ -15,14 +15,14 @@ const DecentralizedStorage = () => {
       title: 'File Upload',
       description: 'User selects and uploads files to begin the secure storage process',
       color: '#007AFF',
-      details: 'Users can drag and drop or browse to select files from their device. Our system supports all file types with intelligent file validation and preprocessing.'
+      details: 'Users can browse to select files from their device. Our system supports almost all file types.'
     },
     {
       id: 'encrypt',
       title: 'AES Encryption',
       description: 'Files are encrypted with AES-256 encryption',
       color: '#34C759',
-      details: 'Advanced Encryption Standard (AES) with 256-bit keys ensures your data remains completely secure. Each file gets a unique encryption key for maximum protection.'
+      details: 'Advanced Encryption Standard (AES) with 256-bit keys ensures your data remains completely secure.'
     },
     {
       id: 'ipfs',
