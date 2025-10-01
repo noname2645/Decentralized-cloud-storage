@@ -38,6 +38,7 @@ html, body {
 
 /* Transaction Info Styles */
 .transaction-info {
+  display: flex;
   padding: 8px 12px;
   background: rgba(45, 156, 219, 0.1);
   border-radius: 6px;
@@ -77,7 +78,7 @@ html, body {
   align-items: center;
   padding: 20px;
   border-bottom: 1px solid #eee;
-  background: #f8f9fa;
+  background: rgba(20, 20, 30, 0.95);
 }
 
 .preview-title {
@@ -86,19 +87,6 @@ html, body {
   color: #333;
 }
 
-.preview-content {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
-}
-
-.preview-transaction-info {
-  padding: 20px;
-  border-top: 1px solid #eee;
-  background: #f8f9fa;
-}
 
 .transaction-section h4 {
   margin: 0 0 15px 0;
@@ -107,8 +95,6 @@ html, body {
 }
 
 .transaction-hash-full {
-  display: flex;
-  flex-direction: column;
   gap: 8px;
   margin-bottom: 15px;
 }
@@ -119,18 +105,6 @@ html, body {
   font-weight: 600;
 }
 
-.transaction-link-full {
-  font-family: 'Courier New', monospace;
-  font-size: 14px;
-  color: #2d9cdb;
-  text-decoration: none;
-  word-break: break-all;
-  padding: 10px;
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-}
 
 .transaction-link-full:hover {
   color: #1a75bb;
@@ -138,40 +112,6 @@ html, body {
   text-decoration: underline;
 }
 
-.transaction-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.copy-hash-btn, .view-explorer-btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-  text-decoration: none;
-  transition: all 0.2s ease;
-}
-
-.copy-hash-btn {
-  background: #6c757d;
-  color: white;
-}
-
-.copy-hash-btn:hover {
-  background: #5a6268;
-}
-
-.view-explorer-btn {
-  background: #2d9cdb;
-  color: white;
-  display: inline-block;
-}
-
-.view-explorer-btn:hover {
-  background: #1a75bb;
-  color: white;
-}
 
 /* File card adjustments */
 .file-card {
@@ -184,13 +124,6 @@ html, body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-/* Enlarged container adjustments for preview modal */
-.enlarged-container {
-  display: flex;
-  flex-direction: column;
-  max-height: 90vh;
-  max-width: 90vw;
-}
 
 .welcome-text {
   font-size: 1.5rem;
@@ -635,55 +568,147 @@ html, body {
   pointer-events: all;
 }
 
+
+
+/* Enlarged container for preview */
 .enlarged-container {
-  position: relative;
-  width: 90%;
-  max-width: 1200px;
-  height: 90vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  max-height: 95vh;
+  max-width: 95vw;
+  width: 75vw;
+  background: rgba(20, 20, 30, 0.95);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .enlarged-image {
-  max-width: 70%;
-  max-height: 70%;
-  border-radius: 12px;
+  max-width: 100%;
+  max-height: 70vh;
   object-fit: contain;
-  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.7);
-  transform: scale(0.9);
-  opacity: 0;
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  border-radius: 0;
 }
 
-.overlay.show .enlarged-image {
-  transform: scale(1);
-  opacity: 1;
+/* PDF specific styling - FIXED */
+iframe.enlarged-image,
+.enlarged-image.pdf-viewer {
+  width: 100%;
+  height: 75vh;
+  max-height: 75vh;
+  border: none;
+  background: #333;
 }
 
-/* Close button for overlays */
+
+
+.preview-title {
+  margin: 0;
+  font-size: 20px;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.preview-content {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+}
+
+.preview-transaction-info {
+  padding: 16px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.5);
+  flex-shrink: 0;
+}
+
+.transaction-section {
+  max-width: 100%;
+}
+
+.transaction-hash-full {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 0;
+  flex-wrap: wrap;
+}
+
+.hash-label {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.transaction-link-full {
+  font-family: 'Roboto', monospace;
+  font-size: 16px;
+  font-weight: 500;
+  color: #2d9cdb;
+  text-decoration: none;
+  word-break: break-all;
+  padding: 8px 12px;
+  background: rgba(45, 156, 219, 0.1);
+  border: 1px solid rgba(45, 156, 219, 0.3);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  margin: 0;
+  flex: 1;
+  width: auto;
+}
+
+.transaction-link-full:hover {
+  color: #1a75bb;
+  background: rgba(45, 156, 219, 0.2);
+  border-color: rgba(45, 156, 219, 0.5);
+}
+
 .close-preview-btn {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(255, 59, 59, 0.9);
   color: white;
   border: none;
-  border-radius: 50%;
+  border-radius: 8px;
   width: 40px;
   height: 40px;
-  font-size: 20px;
+  font-size: 24px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.3s ease, transform 0.3s ease;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .close-preview-btn:hover {
-  background: rgba(255, 59, 59, 0.8);
+  background: rgba(255, 0, 0, 1);
   transform: scale(1.1);
 }
+
+
+/* Overlay */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
 
 /* PDF Modal */
 .pdf-overlay {
@@ -773,10 +798,9 @@ html, body {
   overflow: hidden;
   position: relative;
   background: #333;
-  width: 60%;
+  width: 100%;  /* Changed from 60% */
   height: 100%;
 }
-
 .pdf-object {
   background: #333;
 }

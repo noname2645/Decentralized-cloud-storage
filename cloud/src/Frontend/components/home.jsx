@@ -527,9 +527,8 @@ const Home = () => {
           {preview.transactionHash && (
             <div className="preview-transaction-info">
               <div className="transaction-section">
-                <h4>Blockchain Transaction</h4>
                 <div className="transaction-hash-full">
-                  <span className="hash-label">Transaction Hash:</span>
+                  <span className="hash-label">Transaction Hash : </span>
                   <a 
                     href={`https://sepolia.etherscan.io/tx/${preview.transactionHash}`} 
                     target="_blank" 
@@ -537,25 +536,6 @@ const Home = () => {
                     className="transaction-link-full"
                   >
                     {preview.transactionHash}
-                  </a>
-                </div>
-                <div className="transaction-actions">
-                  <button 
-                    className="copy-hash-btn"
-                    onClick={() => {
-                      navigator.clipboard.writeText(preview.transactionHash);
-                      alert('Transaction hash copied to clipboard!');
-                    }}
-                  >
-                    Copy Hash
-                  </button>
-                  <a 
-                    href={`https://sepolia.etherscan.io/tx/${preview.transactionHash}`} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="view-explorer-btn"
-                  >
-                    View on Explorer
                   </a>
                 </div>
               </div>
