@@ -4,6 +4,9 @@ require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const express = require('express');
 const cors = require('cors');
 const { ethers } = require('ethers');
+console.log("ENV PATH:", path.resolve(__dirname, '../../.env'));
+console.log("Loaded RPC:", process.env.BLAST_API_URL);
+
 
 // Contract ABI
 const contractABI = [
@@ -160,6 +163,12 @@ const provider = new ethers.providers.JsonRpcProvider(process.env.BLAST_API_URL)
 const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 const contract = new ethers.Contract(process.env.CONTRACT_ADDRESS, contractABI, signer);
 
+(async () => {
+  console.log("Signer Address:", signer.address);
+  console.log("Balance:", (await provider.getBalance(signer.address)).toString());
+  console.log("Contract Code:", await provider.getCode(process.env.CONTRACT_ADDRESS));
+})();
+
 console.log('✅ Ethers provider and contract initialized');
 
 // Create API router to separate API routes
@@ -169,6 +178,7 @@ const apiRouter = express.Router();
 apiRouter.get('/', (req, res) => {
   res.send('Backend is running 🚀');
 });
+
 
 // Upload endpoint
 apiRouter.post('/upload', async (req, res) => {
@@ -416,4 +426,5 @@ app.listen(PORT, () => {
   console.log(`🚀 Server listening on http://localhost:${PORT}`);
   console.log(`📍 Frontend path: ${frontendPath}`);
   console.log(`🔌 API available at: http://localhost:${PORT}/api`);
+  
 });
