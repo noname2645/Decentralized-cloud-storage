@@ -32,9 +32,7 @@ export default defineConfig({
     port: 3000,
     strictPort: true,
     host: true,
-    hmr: {
-      clientPort: 443
-    }
+    hmr: true
   },
   preview: {
     port: 3000,

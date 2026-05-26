@@ -145,11 +145,7 @@ const Home = () => {
 
     input.addEventListener("change", (e) => {
       if (e.target.files.length > 0) {
-        console.log('📁 Selected file:', {
-          name: e.target.files[0].name,
-          type: e.target.files[0].type,
-          size: e.target.files[0].size
-        });
+        console.log('📁 File selected:', e.target.files[0].name);
         handleUpload(e.target.files[0]);
       }
     });
@@ -179,7 +175,7 @@ const Home = () => {
 
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      console.log('🔐 Starting encryption for:', file.name);
+      console.log('🔐 Starting encryption...');
       const originalBuffer = await file.arrayBuffer();
       const encryptedString = encryptFile(originalBuffer);
       const encryptedBlob = new Blob([encryptedString], { type: "text/plain" });
@@ -217,7 +213,7 @@ const Home = () => {
       });
 
       fileCID = response.data.IpfsHash;
-      console.log('📤 Uploaded to IPFS, CID:', fileCID);
+      console.log('📤 Uploaded to IPFS successfully');
 
       // Step 3: Blockchain
       setUploadStatus(prev => ({
@@ -235,7 +231,7 @@ const Home = () => {
         });
         
         transactionHash = blockchainResponse.data.txHash; // Get transaction hash from backend
-        console.log('⛓️ Blockchain transaction successful, TX Hash:', transactionHash);
+        console.log('⛓️ Blockchain transaction successful');
 
       } catch (blockchainError) {
         // If blockchain fails, rollback the Pinata upload
@@ -315,20 +311,15 @@ const Home = () => {
 
   const handlePreview = async (file) => {
     try {
-      console.log('👀 Starting preview for:', file.fileName, 'Type:', file.type);
+      console.log('👀 Starting preview for:', file.fileName);
       
       const res = await fetch(`https://gateway.pinata.cloud/ipfs/${file.fileCID}`);
       const encryptedText = await res.text();
-      
-      console.log('👀 Encrypted text retrieved, length:', encryptedText.length);
 
       const decryptedBytes = decryptFile(encryptedText);
-      console.log('👀 Decrypted bytes length:', decryptedBytes.length);
 
       const blob = new Blob([decryptedBytes], { type: file.type });
       const url = URL.createObjectURL(blob);
-      
-      console.log('👀 Blob created, URL:', url);
 
       setPreview({
         isOpen: true,
@@ -547,7 +538,7 @@ const Home = () => {
   };
 
   const getFileIcon = (fileType) => {
-    console.log('📄 File type received:', fileType);
+
     
     switch (true) {
       case fileType?.includes('jpeg') || fileType?.includes('jpg'):

@@ -5,7 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const { ethers } = require('ethers');
 console.log("ENV PATH:", path.resolve(__dirname, '../../.env'));
-console.log("Loaded RPC:", process.env.BLAST_API_URL);
+console.log("Loaded RPC:", process.env.BLAST_API_URL ? '✅ Configured' : '❌ Missing');
 
 
 // Contract ABI
@@ -164,9 +164,10 @@ const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 const contract = new ethers.Contract(process.env.CONTRACT_ADDRESS, contractABI, signer);
 
 (async () => {
-  console.log("Signer Address:", signer.address);
-  console.log("Balance:", (await provider.getBalance(signer.address)).toString());
-  console.log("Contract Code:", await provider.getCode(process.env.CONTRACT_ADDRESS));
+  console.log("Signer Address:", signer.address.slice(0, 6) + '...' + signer.address.slice(-4));
+  console.log("Balance: ✅ Retrieved");
+  const code = await provider.getCode(process.env.CONTRACT_ADDRESS);
+  console.log("Contract Code:", code && code !== '0x' ? '✅ Deployed' : '❌ Not found');
 })();
 
 console.log('✅ Ethers provider and contract initialized');
@@ -198,9 +199,9 @@ apiRouter.post('/upload', async (req, res) => {
 
     console.log('📤 Calling contract.uploadFile with:');
     console.log('  - name:', fileName);
-    console.log('  - ipfsHash:', ipfsHash);
-    console.log('  - Contract Address:', process.env.CONTRACT_ADDRESS);
-    console.log('  - Network:', await provider.getNetwork());
+    console.log('  - ipfsHash:', ipfsHash.slice(0, 8) + '...');
+    console.log('  - Contract: ✅ Connected');
+    console.log('  - Network:', (await provider.getNetwork()).name);
 
     const gasEstimate = await contract.estimateGas.uploadFile(fileName, ipfsHash);
     console.log('Gas estimate successful:', gasEstimate.toString());
@@ -210,9 +211,7 @@ apiRouter.post('/upload', async (req, res) => {
     });
 
     console.log('✅ Transaction sent successfully!');
-    console.log('  - Hash:', tx.hash);
-    console.log('  - From:', tx.from);
-    console.log('  - To:', tx.to);
+    console.log('  - Hash:', tx.hash.slice(0, 10) + '...' + tx.hash.slice(-6));
     console.log('  - Nonce:', tx.nonce);
     console.log('  - Gas Limit:', tx.gasLimit.toString());
     console.log('⏳ Waiting for confirmation...');
@@ -221,7 +220,6 @@ apiRouter.post('/upload', async (req, res) => {
     console.log('🎉 Transaction confirmed!');
     console.log('  - Block Number:', receipt.blockNumber);
     console.log('  - Gas Used:', receipt.gasUsed.toString());
-    console.log('  - Transaction Hash:', receipt.transactionHash);
 
     res.json({
       success: true,
