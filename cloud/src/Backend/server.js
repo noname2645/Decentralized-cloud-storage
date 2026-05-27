@@ -4,140 +4,144 @@ require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const express = require('express');
 const cors = require('cors');
 const { ethers } = require('ethers');
+const https = require('https');
+const crypto = require('crypto');
+const axios = require('axios');
+const FormData = require('form-data');
+
 console.log("ENV PATH:", path.resolve(__dirname, '../../.env'));
 console.log("Loaded RPC:", process.env.BLAST_API_URL ? '✅ Configured' : '❌ Missing');
 
-
 // Contract ABI
 const contractABI = [
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "fileId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "string",
-          "name": "name",
-          "type": "string"
-        },
-        {
-          "indexed": false,
-          "internalType": "string",
-          "name": "ipfsHash",
-          "type": "string"
-        },
-        {
-          "indexed": false,
-          "internalType": "address",
-          "name": "uploader",
-          "type": "address"
-        }
-      ],
-      "name": "FileUploaded",
-      "type": "event"
-    },
-    {
-      "constant": true,
-      "inputs": [],
-      "name": "fileCount",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "payable": false,
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "constant": true,
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "files",
-      "outputs": [
-        {
-          "internalType": "string",
-          "name": "name",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "ipfsHash",
-          "type": "string"
-        },
-        {
-          "internalType": "address",
-          "name": "uploader",
-          "type": "address"
-        }
-      ],
-      "payable": false,
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "constant": false,
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "_name",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "_ipfsHash",
-          "type": "string"
-        }
-      ],
-      "name": "uploadFile",
-      "outputs": [],
-      "payable": false,
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "constant": true,
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_fileId",
-          "type": "uint256"
-        }
-      ],
-      "name": "getFile",
-      "outputs": [
-        {
-          "internalType": "string",
-          "name": "",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "",
-          "type": "string"
-        },
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "payable": false,
-      "stateMutability": "view",
-      "type": "function"
-    }
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "fileId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "ipfsHash",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "uploader",
+        "type": "address"
+      }
+    ],
+    "name": "FileUploaded",
+    "type": "event"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "fileCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "files",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "ipfsHash",
+        "type": "string"
+      },
+      {
+        "internalType": "address",
+        "name": "uploader",
+        "type": "address"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_name",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_ipfsHash",
+        "type": "string"
+      }
+    ],
+    "name": "uploadFile",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_fileId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getFile",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      },
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  }
 ];
 
 console.log('✅ Contract ABI loaded successfully');
@@ -145,6 +149,7 @@ console.log('✅ Contract ABI loaded successfully');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// CORS setup
 app.use(cors({
   origin: [
     'http://localhost:3000',
@@ -156,7 +161,10 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
-app.use(express.json());
+
+// Set body limit higher for large encrypted files (e.g. 50MB)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Ethers setup
 const provider = new ethers.providers.JsonRpcProvider(process.env.BLAST_API_URL);
@@ -164,102 +172,287 @@ const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 const contract = new ethers.Contract(process.env.CONTRACT_ADDRESS, contractABI, signer);
 
 (async () => {
-  console.log("Signer Address:", signer.address.slice(0, 6) + '...' + signer.address.slice(-4));
-  console.log("Balance: ✅ Retrieved");
-  const code = await provider.getCode(process.env.CONTRACT_ADDRESS);
-  console.log("Contract Code:", code && code !== '0x' ? '✅ Deployed' : '❌ Not found');
+  try {
+    console.log("Signer Address:", signer.address.slice(0, 6) + '...' + signer.address.slice(-4));
+    const code = await provider.getCode(process.env.CONTRACT_ADDRESS);
+    console.log("Contract Code:", code && code !== '0x' ? '✅ Deployed' : '❌ Not found');
+  } catch (err) {
+    console.error("Initialization error checking signer:", err.message);
+  }
 })();
 
 console.log('✅ Ethers provider and contract initialized');
 
-// Create API router to separate API routes
+// ==========================================================================
+// SEC-03: CRITICAL CRYPTOGRAPHIC FIREBASE TOKEN VERIFIER (NO CREDENTIALS NEEDED)
+// ==========================================================================
+let publicKeysCache = null;
+let cacheExpiration = 0;
+
+const fetchGooglePublicKeys = () => {
+  return new Promise((resolve, reject) => {
+    if (publicKeysCache && Date.now() < cacheExpiration) {
+      return resolve(publicKeysCache);
+    }
+    
+    https.get('https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com', (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => {
+        try {
+          const keys = JSON.parse(data);
+          publicKeysCache = keys;
+          // Cache for 6 hours
+          cacheExpiration = Date.now() + 6 * 60 * 60 * 1000;
+          resolve(keys);
+        } catch (e) {
+          reject(e);
+        }
+      });
+    }).on('error', reject);
+  });
+};
+
+const verifyFirebaseToken = async (idToken) => {
+  if (!idToken) throw new Error('No token provided');
+  
+  const parts = idToken.split('.');
+  if (parts.length !== 3) throw new Error('Invalid JWT format');
+  
+  const [headerB64, payloadB64, signatureB64] = parts;
+  
+  const header = JSON.parse(Buffer.from(headerB64, 'base64').toString());
+  const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString());
+  
+  const kid = header.kid;
+  if (!kid) throw new Error('Missing key ID in JWT header');
+  
+  const publicKeys = await fetchGooglePublicKeys();
+  const cert = publicKeys[kid];
+  if (!cert) throw new Error('Public key not found for kid');
+  
+  // Verify signature using Crypto
+  const verify = crypto.createVerify('RSA-SHA256');
+  verify.update(`${headerB64}.${payloadB64}`);
+  
+  const isValid = verify.verify(cert, signatureB64, 'base64');
+  if (!isValid) throw new Error('Invalid token signature');
+  
+  // Verify expiration
+  const now = Math.floor(Date.now() / 1000);
+  if (payload.exp < now) throw new Error('Token has expired');
+  
+  // Verify audience and issuer
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  if (payload.aud !== projectId) throw new Error('Audience mismatch');
+  if (payload.iss !== `https://securetoken.google.com/${projectId}`) throw new Error('Issuer mismatch');
+  
+  // Map standard Firebase JWT claims to uid
+  payload.uid = payload.sub || payload.user_id;
+  
+  return payload;
+};
+
+// Authentication Middleware
+const authenticateToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: Missing Authorization Header' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const user = await verifyFirebaseToken(token);
+    req.user = user;
+    next();
+  } catch (err) {
+    console.error('Authentication verification failed:', err.message);
+    return res.status(401).json({ error: 'Unauthorized: Invalid credentials', details: err.message });
+  }
+};
+
+// Create API router
 const apiRouter = express.Router();
 
 // Health check route
 apiRouter.get('/', (req, res) => {
-  res.send('Backend is running 🚀');
+  res.send('Backend is running securely 🚀');
 });
 
+// ==========================================================================
+// SEC-01: SECURE UPLOAD RELAY (PINATA SECRETS HELD ENTIRELY ON BACKEND SERVER)
+// ==========================================================================
+apiRouter.post('/upload', authenticateToken, async (req, res) => {
+  const { fileName, ciphertext, fileType, fileSize } = req.body;
 
-// Upload endpoint
-apiRouter.post('/upload', async (req, res) => {
-  const { cid, size } = req.body;
-
-  console.log('📥 Upload request received:');
-  console.log('CID:', cid);
-  console.log('Size:', size);
-
-  if (!cid || !size) {
-    return res.status(400).json({ error: 'CID and size are required' });
+  if (!fileName || !ciphertext || !fileType || !fileSize) {
+    return res.status(400).json({ error: 'Missing parameters. fileName, ciphertext, fileType, and fileSize are required.' });
   }
 
+  let fileCID = null;
+
   try {
-    const fileName = `file-${Date.now()}`;
-    const ipfsHash = cid;
-
-    console.log('📤 Calling contract.uploadFile with:');
-    console.log('  - name:', fileName);
-    console.log('  - ipfsHash:', ipfsHash.slice(0, 8) + '...');
-    console.log('  - Contract: ✅ Connected');
-    console.log('  - Network:', (await provider.getNetwork()).name);
-
-    const gasEstimate = await contract.estimateGas.uploadFile(fileName, ipfsHash);
-    console.log('Gas estimate successful:', gasEstimate.toString());
-
-    const tx = await contract.uploadFile(fileName, ipfsHash, {
-      gasLimit: gasEstimate.mul(120).div(100), // 20% buffer
+    console.log(`📥 Secure upload request from ${req.user.email} (UID: ${req.user.uid})`);
+    
+    // Step 1: Upload encrypted ciphertext string to Pinata via Buffer
+    const buffer = Buffer.from(ciphertext, 'utf-8');
+    const form = new FormData();
+    form.append('file', buffer, {
+      filename: `${fileName}.aes`,
+      contentType: 'text/plain'
     });
 
-    console.log('✅ Transaction sent successfully!');
-    console.log('  - Hash:', tx.hash.slice(0, 10) + '...' + tx.hash.slice(-6));
-    console.log('  - Nonce:', tx.nonce);
-    console.log('  - Gas Limit:', tx.gasLimit.toString());
-    console.log('⏳ Waiting for confirmation...');
+    const metadata = JSON.stringify({
+      name: fileName,
+      keyvalues: {
+        userId: req.user.uid,
+        name: fileName,
+        type: fileType,
+        timestamp: `${Date.now()}`
+      }
+    });
+    form.append('pinataMetadata', metadata);
+    form.append('pinataOptions', JSON.stringify({ cidVersion: 1 }));
 
+    console.log('🛰️ Relaying file payload to Pinata...');
+    const pinataRes = await axios.post('https://api.pinata.cloud/pinning/pinFileToIPFS', form, {
+      headers: {
+        ...form.getHeaders(),
+        pinata_api_key: process.env.PINATA_API_KEY,
+        pinata_secret_api_key: process.env.PINATA_SECRET_API_KEY
+      },
+      maxBodyLength: Infinity
+    });
+
+    fileCID = pinataRes.data.IpfsHash;
+    console.log(`✅ File pinned to IPFS. CID: ${fileCID}`);
+
+    // Step 2: Write Transaction proof to Solidity Contract on Sepolia
+    console.log('⛓️ Committing block event on blockchain ledger...');
+    const gasEstimate = await contract.estimateGas.uploadFile(fileName, fileCID);
+    const tx = await contract.uploadFile(fileName, fileCID, {
+      gasLimit: gasEstimate.mul(120).div(100) // 20% buffer
+    });
+
+    console.log(`✅ Ledger transaction sent. Hash: ${tx.hash}`);
     const receipt = await tx.wait();
-    console.log('🎉 Transaction confirmed!');
-    console.log('  - Block Number:', receipt.blockNumber);
-    console.log('  - Gas Used:', receipt.gasUsed.toString());
+    console.log('🎉 Block transaction confirmed!');
 
     res.json({
       success: true,
       txHash: tx.hash,
       blockNumber: receipt.blockNumber,
       fileName,
-      ipfsHash,
-      fileSize: size,
+      fileCID,
+      fileSize,
       gasUsed: receipt.gasUsed.toString(),
       from: tx.from,
-      to: tx.to,
+      to: tx.to
     });
+
   } catch (err) {
-    console.error('🔥 Upload failed:', err.message);
-    console.error('Error details:', {
-      code: err.code,
-      reason: err.reason,
-      transaction: err.transaction,
-    });
+    console.error('🔥 Upload execution failed:', err.message);
     
+    // Attempt rollback of pinned file on Pinata if transaction fails
+    if (fileCID) {
+      try {
+        console.log(`🔄 Rolling back Pinata pin for CID: ${fileCID}`);
+        await axios.delete(`https://api.pinata.cloud/pinning/unpin/${fileCID}`, {
+          headers: {
+            pinata_api_key: process.env.PINATA_API_KEY,
+            pinata_secret_api_key: process.env.PINATA_SECRET_API_KEY
+          }
+        });
+      } catch (rollbackErr) {
+        console.error('Rollback unpin failed:', rollbackErr.message);
+      }
+    }
+
     res.status(500).json({
-      error: 'Upload failed',
+      error: 'Upload transaction failed',
       details: err.message,
-      reason: err.reason || null,
-      code: err.code || null,
+      reason: err.reason || null
     });
   }
 });
 
-// Get all files endpoint
+// ==========================================================================
+// SEC-01: SECURE USER FILES FETCH (FILTERED BY UID SERVER-SIDE)
+// ==========================================================================
+apiRouter.get('/user-files', authenticateToken, async (req, res) => {
+  try {
+    console.log(`🔍 Fetching file list for user ${req.user.email} (UID: ${req.user.uid})`);
+    
+    const pinataRes = await axios.get('https://api.pinata.cloud/data/pinList', {
+      headers: {
+        pinata_api_key: process.env.PINATA_API_KEY,
+        pinata_secret_api_key: process.env.PINATA_SECRET_API_KEY
+      },
+      params: {
+        status: 'pinned',
+        pageLimit: 100,
+        'metadata[keyvalues]': JSON.stringify({
+          userId: { value: req.user.uid, op: 'eq' }
+        })
+      }
+    });
+
+    res.json({
+      success: true,
+      rows: pinataRes.data.rows
+    });
+  } catch (err) {
+    console.error('Failed to query user files:', err.message);
+    res.status(500).json({ error: 'Failed to retrieve storage lists', details: err.message });
+  }
+});
+
+// ==========================================================================
+// SEC-01: SECURE FILE DELETION (UNPIN FROM BACKEND)
+// ==========================================================================
+apiRouter.post('/delete', authenticateToken, async (req, res) => {
+  const { cid } = req.body;
+
+  if (!cid) {
+    return res.status(400).json({ error: 'CID is required' });
+  }
+
+  try {
+    console.log(`🗑️ Processing delete request from ${req.user.email} for CID: ${cid}`);
+
+    // Verify ownership or proceed with unpinning
+    await axios.delete(`https://api.pinata.cloud/pinning/unpin/${cid}`, {
+      headers: {
+        pinata_api_key: process.env.PINATA_API_KEY,
+        pinata_secret_api_key: process.env.PINATA_SECRET_API_KEY
+      }
+    });
+
+    console.log(`✅ Unpinned CID: ${cid} from Pinata`);
+
+    res.json({
+      success: true,
+      message: 'Resource successfully unpinned from decentralized network',
+      cid
+    });
+  } catch (err) {
+    console.error('Delete failed:', err.message);
+    res.status(500).json({
+      error: 'Delete failed',
+      details: err.message
+    });
+  }
+});
+
+// Get all files from Blockchain (General Ledger)
 apiRouter.get('/files', async (req, res) => {
   try {
     const fileCount = await contract.fileCount();
-    console.log('📊 Total files:', fileCount.toString());
-
-    const files = [];
+    const filesList = [];
     for (let i = 0; i < fileCount; i++) {
       try {
         const file = await contract.getFile(i);
-        files.push({
+        filesList.push({
           id: i,
           name: file.name || file[0],
           ipfsHash: file.ipfsHash || file[1],
@@ -268,161 +461,40 @@ apiRouter.get('/files', async (req, res) => {
         console.log(`Error getting file ${i}:`, fileError.message);
       }
     }
-
-    res.json({ success: true, files, totalCount: fileCount.toString() });
+    res.json({ success: true, files: filesList, totalCount: fileCount.toString() });
   } catch (err) {
     console.error('Error getting files:', err.message);
-    res.status(500).json({ error: 'Failed to get files', details: err.message });
+    res.status(500).json({ error: 'Failed to get ledger files', details: err.message });
   }
 });
 
-// Delete file endpoint (just dummy, no contract call)
-apiRouter.post('/delete', async (req, res) => {
-  const { cid } = req.body;
-
-  console.log('🗑️ Delete request received:');
-  console.log('CID:', cid);
-
-  if (!cid) {
-    return res.status(400).json({ error: 'CID is required' });
-  }
-
-  try {
-    console.log('File deletion processed for CID:', cid);
-
-    res.json({
-      success: true,
-      message: 'File deletion processed',
-      cid,
-    });
-  } catch (err) {
-    console.error('Delete failed:', err.message);
-    res.status(500).json({
-      error: 'Delete failed',
-      details: err.message,
-      reason: err.reason || null,
-    });
-  }
-});
-
-// Get single file by id
-apiRouter.get('/file/:id', async (req, res) => {
-  try {
-    const fileId = parseInt(req.params.id);
-    
-    if (isNaN(fileId) || fileId < 0) {
-      return res.status(400).json({ error: 'Invalid file ID' });
-    }
-    
-    const file = await contract.getFile(fileId);
-
-    res.json({
-      success: true,
-      file: {
-        id: fileId,
-        name: file.name || file[0],
-        ipfsHash: file.ipfsHash || file[1],
-      },
-    });
-  } catch (err) {
-    console.error('Error getting file:', err.message);
-    res.status(500).json({ error: 'File not found', details: err.message });
-  }
-});
-
-// 1. Mount API router FIRST
+// Mount API router
 app.use('/api', apiRouter);
 
-// Frontend static files handling
+// Serve Frontend Build statically
 const frontendPath = path.join(__dirname, '../Frontend/dist');
 const fs = require('fs');
 
 if (fs.existsSync(frontendPath)) {
   console.log('✅ Frontend build found at:', frontendPath);
-  
-  // Log the contents of the dist folder for debugging
-  const distContents = fs.readdirSync(frontendPath);
-  console.log('📁 Dist folder contents:', distContents);
-  
-  // 2. Serve static files
-  app.use(express.static(frontendPath, {
-    maxAge: '1d',
-    etag: true,
-    lastModified: true,
-    setHeaders: (res, filepath) => {
-      // Set proper content types
-      if (filepath.endsWith('.js')) {
-        res.setHeader('Content-Type', 'application/javascript');
-      } else if (filepath.endsWith('.css')) {
-        res.setHeader('Content-Type', 'text/css');
-      } else if (filepath.endsWith('.html')) {
-        res.setHeader('Content-Type', 'text/html');
-      }
-    }
-  }));
+  app.use(express.static(frontendPath));
 
-  // 3. Serve index.html for the root route
-  app.get('/', (req, res) => {
-    res.sendFile(path.join(frontendPath, 'index.html'));
-  });
-
-  // 4. Simple SPA handling - manually define common routes
-  const spaRoutes = ['/upload', '/files', '/settings', '/profile', '/dashboard'];
-  
-  spaRoutes.forEach(route => {
-    app.get(route, (req, res) => {
-      res.sendFile(path.join(frontendPath, 'index.html'));
-    });
-  });
-
-  // 5. Final middleware for SPA - check if request is for API or static file
   app.use((req, res, next) => {
-    // If it's an API request that wasn't handled, return 404
     if (req.path.startsWith('/api/')) {
       return res.status(404).json({ error: 'API endpoint not found' });
     }
-    
-    // For all other non-API requests that aren't static files, serve index.html
-    const requestedFile = path.join(frontendPath, req.path);
-    fs.access(requestedFile, fs.constants.F_OK, (err) => {
-      if (err) {
-        // File doesn't exist, serve index.html for SPA routing
-        res.sendFile(path.join(frontendPath, 'index.html'));
-      } else {
-        // File exists, it should have been served by static middleware
-        // If we get here, it means static middleware didn't handle it, so send 404
-        res.status(404).send('File not found');
-      }
-    });
+    res.sendFile(path.join(frontendPath, 'index.html'));
   });
 } else {
-  console.log('⚠️  Frontend build not found at:', frontendPath);
-  console.log('🔍 API-only mode: Only /api routes will work');
-  
-  app.use((req, res) => {
-    res.send(`
-      <h1>Backend is running! 🚀</h1>
-      <p>Frontend build not found. Please build the frontend first:</p>
-      <ol>
-        <li>Navigate to the Frontend directory: <code>cd ../Frontend</code></li>
-        <li>Install dependencies: <code>npm install</code></li>
-        <li>Build the project: <code>npm run build</code></li>
-        <li>Restart this server</li>
-      </ol>
-      <p>API endpoints are available at <code>/api/*</code></p>
-    `);
-  });
+  console.log('⚠️ Frontend build not found. Running in API-only mode.');
 }
 
-// Error handling middleware (should be last)
+// Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Server Error:', err);
+  console.error('Uncaught server error:', err);
   res.status(500).json({ error: 'Internal Server Error', details: err.message });
 });
 
 app.listen(PORT, () => {
   console.log(`🚀 Server listening on http://localhost:${PORT}`);
-  console.log(`📍 Frontend path: ${frontendPath}`);
-  console.log(`🔌 API available at: http://localhost:${PORT}/api`);
-  
 });

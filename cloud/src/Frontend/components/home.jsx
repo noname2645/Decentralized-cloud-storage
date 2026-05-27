@@ -2,12 +2,13 @@ import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { db, auth } from "./config.js";
-import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
+import { collection, addDoc, getDocs, query, where, doc, getDoc, setDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import axios from "axios";
-import { pinataConfig } from "./config.js";
 import "../stylesheets/home.css";
 import { encryptFile, decryptFile } from "./aesUtils.js";
+import { PDFThumbnail, PDFFullViewer } from "./PDFRenderer.jsx";
+import CryptoJS from "crypto-js";
 import { 
   Cloud, 
   Search, 
@@ -34,6 +35,9 @@ const Home = () => {
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [user, setUser] = useState(null);
+  
+  // Custom user-specific encryption key
+  const [userKey, setUserKey] = useState(null);
   
   // Custom Controls State
   const [searchQuery, setSearchQuery] = useState("");
@@ -76,22 +80,46 @@ const Home = () => {
       ? "http://localhost:3001"
       : "https://decentralized-cloud-storage.onrender.com";
 
+  // Auth State Listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-      if (currentUser && !initialLoadComplete) {
+      if (currentUser) {
         setShowWelcomeModal(true);
-        fetchPinnedFilesFromPinata(currentUser.uid);
+        try {
+          // SEC-02: Retrieve or generate unique AES key for this user in Firestore
+          let keyVal = null;
+          const userDocRef = doc(db, "users", currentUser.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          
+          if (userDocSnap.exists() && userDocSnap.data().aesKey) {
+            keyVal = userDocSnap.data().aesKey;
+          } else {
+            // Generate secure random 256-bit user key
+            keyVal = CryptoJS.lib.WordArray.random(32).toString(CryptoJS.enc.Hex);
+            await setDoc(userDocRef, { aesKey: keyVal }, { merge: true });
+          }
+          
+          setUserKey(keyVal);
+          await fetchPinnedFilesFromBackend(currentUser);
+        } catch (err) {
+          console.error("Failed to load user credentials:", err);
+          setInitialLoadComplete(true);
+          setShowWelcomeModal(false);
+        }
       }
     });
     return () => unsubscribe();
-  }, [initialLoadComplete]);
+  }, []);
 
-  const fetchPinnedFilesFromPinata = async (userId) => {
+  const fetchPinnedFilesFromBackend = async (currentUser) => {
     try {
-      // First, get files from Firestore to get transaction hashes
+      // SEC-03: Retrieve Firebase ID Token
+      const idToken = await currentUser.getIdToken(true);
+
+      // Get files from Firestore to get transaction hashes
       const filesSnapshot = await getDocs(
-        query(collection(db, "files"), where("userId", "==", userId)),
+        query(collection(db, "files"), where("userId", "==", currentUser.uid)),
       );
       const firestoreFiles = {};
 
@@ -103,22 +131,14 @@ const Home = () => {
         };
       });
 
-      // Use Pinata server-side metadata filter to only fetch this user's files
-      const res = await axios.get("https://api.pinata.cloud/data/pinList", {
+      // SEC-01: Call backend proxy to fetch Pinata rows securely
+      const res = await axios.get(`${backendBaseURL}/api/user-files`, {
         headers: {
-          pinata_api_key: pinataConfig.pinataApiKey,
-          pinata_secret_api_key: pinataConfig.pinataSecretApiKey,
-        },
-        params: {
-          status: "pinned",
-          pageLimit: 100,
-          "metadata[keyvalues]": JSON.stringify({
-            userId: { value: userId, op: "eq" },
-          }),
-        },
+          Authorization: `Bearer ${idToken}`
+        }
       });
 
-      // Map rows from Pinata metadata
+      // Map rows from backend response
       const filesList = res.data.rows.map((file) => {
         const fileCID = file.ipfs_pin_hash;
         const type = file.metadata?.keyvalues?.type || "unknown";
@@ -147,7 +167,7 @@ const Home = () => {
       setInitialLoadComplete(true);
       setShowWelcomeModal(false);
     } catch (err) {
-      console.error("Error fetching from Pinata:", err);
+      console.error("Error fetching files via backend:", err);
       setFiles([]);
       setInitialLoadComplete(true);
       setShowWelcomeModal(false);
@@ -156,22 +176,29 @@ const Home = () => {
 
   // Lazy preview loader — downloads and decrypts a single file on demand
   const loadPreview = useCallback(async (fileCID, type) => {
-    if (!(type?.startsWith("image/") || type?.startsWith("video/") || type === "application/pdf")) return;
+    if (!userKey || !(type?.startsWith("image/") || type?.startsWith("video/") || type === "application/pdf")) return;
     try {
       const res = await fetch(`https://gateway.pinata.cloud/ipfs/${fileCID}`);
       const encryptedText = await res.text();
-      const decryptedBytes = decryptFile(encryptedText);
-      const blob = new Blob([decryptedBytes], { type });
-      const url = URL.createObjectURL(blob);
-      setPreviewCache((prev) => ({ ...prev, [fileCID]: url }));
+      const decryptedBytes = decryptFile(encryptedText, userKey);
+
+      if (type === "application/pdf") {
+        // Store raw Uint8Array bytes — PDFThumbnail renders them via PDF.js (no blob URL needed)
+        setPreviewCache((prev) => ({ ...prev, [fileCID]: decryptedBytes }));
+      } else {
+        // Images and videos use blob object URLs
+        const blob = new Blob([decryptedBytes], { type });
+        const url = URL.createObjectURL(blob);
+        setPreviewCache((prev) => ({ ...prev, [fileCID]: url }));
+      }
     } catch (err) {
       console.error("Failed to load preview for CID:", fileCID);
     }
-  }, []);
+  }, [userKey]);
 
   // IntersectionObserver: load previews only when file cards scroll into view
   useEffect(() => {
-    if (!files.length) return;
+    if (!files.length || !userKey) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -189,7 +216,6 @@ const Home = () => {
       { threshold: 0.1, rootMargin: "200px" },
     );
 
-    // Observe all file cards that have previewable types
     Object.entries(fileCardsRef.current).forEach(([cid, el]) => {
       if (el && !previewCache[cid]) {
         observer.observe(el);
@@ -197,7 +223,7 @@ const Home = () => {
     });
 
     return () => observer.disconnect();
-  }, [files, loadPreview, previewCache]);
+  }, [files, loadPreview, previewCache, userKey]);
 
   const handleFileSelect = () => {
     const input = document.createElement("input");
@@ -218,14 +244,12 @@ const Home = () => {
   };
 
   const handleUpload = async (file) => {
-    if (!file || !user) {
+    if (!file || !user || !userKey) {
       alert("Please log in first.");
       return;
     }
 
     setLoading(true);
-    let fileCID = null;
-    let transactionHash = null;
 
     try {
       // Step 1: Encrypting
@@ -238,87 +262,47 @@ const Home = () => {
       await new Promise((resolve) => setTimeout(resolve, 300));
 
       const originalBuffer = await file.arrayBuffer();
-      const encryptedString = encryptFile(originalBuffer);
-      const encryptedBlob = new Blob([encryptedString], { type: "text/plain" });
-      const encryptedFile = new File([encryptedBlob], file.name + ".aes", {
-        type: "text/plain",
-      });
+      // SEC-02: Encrypting using user-specific AES key
+      const encryptedString = encryptFile(originalBuffer, userKey);
 
-      // Step 2: Uploading to IPFS
+      // Step 2: Uploading to IPFS (Delegated securely to Backend Proxy)
       setUploadStatus((prev) => ({
         ...prev,
         stage: "uploading",
       }));
 
-      const formData = new FormData();
-      formData.append("file", encryptedFile);
-      const metadata = JSON.stringify({
-        name: file.name,
-        keyvalues: {
-          userId: user.uid,
-          name: file.name,
-          type: file.type || "unknown",
-          timestamp: `${Date.now()}-${Math.floor(Math.random() * 100000)}`,
-        },
-      });
-      const options = JSON.stringify({ cidVersion: 1 });
-      formData.append("pinataMetadata", metadata);
-      formData.append("pinataOptions", options);
+      // SEC-03: Retrieve idToken to verify caller authenticity
+      const idToken = await user.getIdToken(true);
 
-      const response = await axios.post(
-        "https://api.pinata.cloud/pinning/pinFileToIPFS",
-        formData,
+      const uploadResponse = await axios.post(
+        `${backendBaseURL}/api/upload`,
+        {
+          fileName: file.name,
+          ciphertext: encryptedString,
+          fileType: file.type || "unknown",
+          fileSize: file.size,
+        },
         {
           headers: {
-            "Content-Type": "multipart/form-data",
-            pinata_api_key: pinataConfig.pinataApiKey,
-            pinata_secret_api_key: pinataConfig.pinataSecretApiKey,
+            Authorization: `Bearer ${idToken}`,
           },
-        },
+        }
       );
 
-      fileCID = response.data.IpfsHash;
+      const { fileCID, txHash } = uploadResponse.data;
 
       // Step 3: Blockchain
       setUploadStatus((prev) => ({
         ...prev,
         stage: "blockchain",
       }));
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      try {
-        const blockchainResponse = await axios.post(
-          `${backendBaseURL}/api/upload`,
-          {
-            cid: fileCID,
-            size: file.size,
-          },
-        );
-
-        transactionHash = blockchainResponse.data.txHash;
-      } catch (blockchainError) {
-        // Rollback Pinata if blockchain fails
-        console.error("Blockchain transaction failed:", blockchainError);
-        try {
-          await axios.delete(
-            `https://api.pinata.cloud/pinning/unpin/${fileCID}`,
-            {
-              headers: {
-                pinata_api_key: pinataConfig.pinataApiKey,
-                pinata_secret_api_key: pinataConfig.pinataSecretApiKey,
-              },
-            },
-          );
-        } catch (rollbackError) {
-          console.error("Failed to rollback Pinata upload:", rollbackError);
-        }
-        throw new Error("Blockchain transaction failed. Upload cancelled.");
-      }
-
-      // Add to Firestore
+      // Add local reference to Firestore
       await addDoc(collection(db, "files"), {
         userId: user.uid,
         fileCID,
-        transactionHash,
+        transactionHash: txHash,
         type: file.type || "unknown",
         timestamp: new Date(),
       });
@@ -338,10 +322,10 @@ const Home = () => {
         setLoading(false);
       }, 1200);
 
-      fetchPinnedFilesFromPinata(user.uid);
+      fetchPinnedFilesFromBackend(user);
     } catch (error) {
       console.error("Upload failed:", error);
-      alert("Upload failed: " + error.message);
+      alert("Upload failed: " + (error.response?.data?.details || error.message));
       setUploadStatus({
         isOpen: false,
         stage: "encrypting",
@@ -356,14 +340,19 @@ const Home = () => {
       return;
     }
     try {
-      await axios.delete(`https://api.pinata.cloud/pinning/unpin/${fileCID}`, {
-        headers: {
-          pinata_api_key: pinataConfig.pinataApiKey,
-          pinata_secret_api_key: pinataConfig.pinataSecretApiKey,
-        },
-      });
+      // SEC-03: Authenticate deletion request
+      const idToken = await user.getIdToken(true);
 
-      await axios.post(`${backendBaseURL}/api/delete`, { cid: fileCID });
+      await axios.post(
+        `${backendBaseURL}/api/delete`,
+        { cid: fileCID },
+        {
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        }
+      );
+
       setFiles((prev) => prev.filter((f) => f.fileCID !== fileCID));
     } catch (error) {
       console.error("Delete failed:", error);
@@ -373,30 +362,38 @@ const Home = () => {
 
   const handlePreview = async (file) => {
     try {
-      // Butter-smooth optimization: if file is already loaded in lazy cache, use it immediately!
-      if (previewCache[file.fileCID]) {
+      const cached = previewCache[file.fileCID];
+      if (cached) {
         setPreview({
           isOpen: true,
           type: file.type,
-          content: previewCache[file.fileCID],
+          content: cached, // Uint8Array for PDFs, blob URL for images/videos
           fileName: file.fileName,
           transactionHash: file.transactionHash,
         });
         return;
       }
 
-      const res = await fetch(
-        `https://gateway.pinata.cloud/ipfs/${file.fileCID}`,
-      );
+      const res = await fetch(`https://gateway.pinata.cloud/ipfs/${file.fileCID}`);
       const encryptedText = await res.text();
-      const decryptedBytes = decryptFile(encryptedText);
-      const blob = new Blob([decryptedBytes], { type: file.type });
-      const url = URL.createObjectURL(blob);
+      const decryptedBytes = decryptFile(encryptedText, userKey);
+
+      let content;
+      if (file.type === "application/pdf") {
+        // Keep raw bytes for PDF.js — no blob URL needed
+        content = decryptedBytes;
+      } else {
+        const blob = new Blob([decryptedBytes], { type: file.type });
+        content = URL.createObjectURL(blob);
+      }
+
+      // Cache for next open
+      setPreviewCache((prev) => ({ ...prev, [file.fileCID]: content }));
 
       setPreview({
         isOpen: true,
         type: file.type,
-        content: url,
+        content,
         fileName: file.fileName,
         transactionHash: file.transactionHash,
       });
@@ -481,7 +478,7 @@ const Home = () => {
         case "encrypting":
           return {
             title: "Securing Content",
-            desc: "Encrypting local buffer with military-grade AES-256...",
+            desc: "Encrypting local buffer with user-derived AES-256...",
             color: "rgba(239, 68, 68, 0.2)",
             borderColor: "rgba(239, 68, 68, 0.4)",
             icon: "🔐",
@@ -489,8 +486,8 @@ const Home = () => {
           };
         case "uploading":
           return {
-            title: "IPFS Broadcast",
-            desc: "Pulsing blocks to decentralized InterPlanetary File nodes...",
+            title: "Relaying payload",
+            desc: "Pulsing encrypted bytes to IPFS storage nodes...",
             color: "rgba(56, 189, 248, 0.2)",
             borderColor: "rgba(56, 189, 248, 0.4)",
             icon: "🛰️",
@@ -595,7 +592,8 @@ const Home = () => {
         return <video src={preview.content} controls autoPlay />;
       }
       if (preview.type === "application/pdf") {
-        return <iframe src={preview.content} title={preview.fileName} />;
+        // preview.content is a Uint8Array — render all pages via PDF.js
+        return <PDFFullViewer pdfBytes={preview.content} />;
       }
       return (
         <div style={{ padding: "2rem", textAlign: "center" }}>
@@ -730,7 +728,7 @@ const Home = () => {
           <div className="status-row">
             <span className="status-label">Security</span>
             <div className="status-value-badge">
-              <span>AES-256</span>
+              <span>AES-256 (User Key)</span>
             </div>
           </div>
         </div>
@@ -829,7 +827,10 @@ const Home = () => {
           ) : (
             <div className="files-layout-grid">
               {filteredFiles.map((file, index) => {
-                const cachedPreviewUrl = previewCache[file.fileCID];
+                const cachedPreview = previewCache[file.fileCID];
+                // Blob URL string for images/videos, Uint8Array for PDFs
+                const cachedPreviewUrl = typeof cachedPreview === "string" ? cachedPreview : null;
+                const cachedPdfBytes = cachedPreview instanceof Uint8Array ? cachedPreview : null;
                 const hasPreviewType = file.type?.startsWith("image/") || file.type?.startsWith("video/") || file.type === "application/pdf";
                 
                 return (
@@ -849,10 +850,9 @@ const Home = () => {
                         <img src={cachedPreviewUrl} alt={file.fileName} loading="lazy" />
                       ) : file.type?.startsWith("video/") && cachedPreviewUrl ? (
                         <video src={cachedPreviewUrl} muted loop autoPlay playsInline />
-                      ) : file.type === "application/pdf" && cachedPreviewUrl ? (
-                        <div className="pdf-iframe-holder">
-                          <iframe src={cachedPreviewUrl} title="PDF Viewer" />
-                        </div>
+                      ) : file.type === "application/pdf" && cachedPdfBytes ? (
+                        // PDF.js thumbnail — renders page 1 directly to canvas
+                        <PDFThumbnail pdfBytes={cachedPdfBytes} width={280} />
                       ) : (
                         <div className="card-fallback-doc-box">
                           {getFileIconComponent(file.type)}
@@ -862,8 +862,8 @@ const Home = () => {
                         </div>
                       )}
 
-                      {/* Shimmer state loader while decoding client-side */}
-                      {hasPreviewType && !cachedPreviewUrl && (
+                      {/* Shimmer loader while content is decrypting client-side */}
+                      {hasPreviewType && !cachedPreviewUrl && !cachedPdfBytes && (
                         <div className="preview-skeleton">
                           <span>Decrypting Block...</span>
                         </div>

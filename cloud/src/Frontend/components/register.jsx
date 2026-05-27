@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -14,6 +14,7 @@ import { initializeApp } from 'firebase/app';
 import { firebaseConfig } from '../components/config.js';
 import Google from '../assets/Images/google.png';
 import "../stylesheets/register.css";
+import { Mail, Lock, User, UserPlus, ArrowLeft, CheckCircle } from 'lucide-react';
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -27,6 +28,7 @@ const Register = () => {
   const [errorMessage, setErrorMessage] = useState(null);
   const [isVerificationSent, setIsVerificationSent] = useState(false);
   const [isCheckingVerification, setIsCheckingVerification] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // 🔁 Setup session persistence
   useEffect(() => {
@@ -38,13 +40,23 @@ const Register = () => {
   // ✅ Email Signup
   const handleEmailSignup = async (e) => {
     e.preventDefault();
+    setErrorMessage(null);
+    setLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await sendEmailVerification(userCredential.user);
       setIsVerificationSent(true);
       setIsCheckingVerification(true);
     } catch (error) {
-      setErrorMessage(error.message);
+      if (error.code === 'auth/email-already-in-use') {
+        setErrorMessage("Email is already registered. Please login.");
+      } else if (error.code === 'auth/weak-password') {
+        setErrorMessage("Password is too weak. Make it at least 6 characters.");
+      } else {
+        setErrorMessage(error.message);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -85,80 +97,96 @@ const Register = () => {
     }
   };
 
-
   return (
-    <>
-      <div
-        id="canvas-container"
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          zIndex: -1,
-          background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)',
-        }}
-      ></div>
+    <div className="login-page-root">
+      {/* Dynamic Background Glow circles */}
+      <div className="bg-glow-orb bg-glow-orb-1"></div>
+      <div className="bg-glow-orb bg-glow-orb-2"></div>
 
       <div className="form-container">
         <form className="register-form" onSubmit={handleEmailSignup}>
-          <p className="register-title">Register</p>
+          <div className="form-header">
+            <h2 className="register-title">Register</h2>
+            <p className="form-subtitle">Create your secure decentralized cloud account</p>
+          </div>
 
-          <label>
-            <input
-              className="register-input"
-              type="text"
-              placeholder="Name"
-              required
-              value={text}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </label>
+          <div className="input-group">
+            <label className="input-label-wrapper">
+              <User className="input-icon-svg" size={18} />
+              <input
+                className="register-input"
+                type="text"
+                placeholder="Full Name"
+                required
+                value={text}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+          </div>
 
-          <label>
-            <input
-              className="register-input"
-              type="email"
-              placeholder="Email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </label>
+          <div className="input-group">
+            <label className="input-label-wrapper">
+              <Mail className="input-icon-svg" size={18} />
+              <input
+                className="register-input"
+                type="email"
+                placeholder="Email Address"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </label>
+          </div>
 
-          <label>
-            <input
-              className="register-input"
-              type="password"
-              placeholder="Password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </label>
+          <div className="input-group">
+            <label className="input-label-wrapper">
+              <Lock className="input-icon-svg" size={18} />
+              <input
+                className="register-input"
+                type="password"
+                placeholder="Secure Password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </label>
+          </div>
 
-          <button type="submit" className="register-submit">Register</button>
+          <button type="submit" className="register-submit" disabled={loading}>
+            {loading ? "Registering..." : (
+              <>
+                <span>Register</span>
+                <UserPlus size={16} />
+              </>
+            )}
+          </button>
 
           {isVerificationSent && (
-            <div className="verification-message">
-              <p>Please check your email to verify your account.</p>
+            <div className="verification-message-box">
+              <CheckCircle size={16} />
+              <p>Verification link sent! Check your inbox to complete registration.</p>
             </div>
           )}
 
-          {errorMessage && <p className="register-error">{errorMessage}</p>}
+          {errorMessage && <div className="register-error">{errorMessage}</div>}
 
-          <p className="register-or">OR USE THIS METHOD</p>
+          <div className="divider-or">
+            <span className="divider-line"></span>
+            <span className="divider-text">OR USE METHOD</span>
+            <span className="divider-line"></span>
+          </div>
 
           <button type="button" onClick={handleGoogleSignup} className="register-google-btn">
             <img className="register-gimg" src={Google} alt="Google icon" />
-            <p className="register-gtext">Sign Up with Google</p>
+            <span className="register-gtext">Sign Up with Google</span>
           </button>
 
-          <p className="register-signin">Already have an account? <a href="/login">Sign in</a></p>
+          <p className="register-signin">
+            Already have an account? <Link to="/login"><ArrowLeft size={14} style={{ display: 'inline', marginRight: '2px', verticalAlign: 'middle' }} /> Sign in</Link>
+          </p>
         </form>
       </div>
-    </>
+    </div>
   );
 };
 

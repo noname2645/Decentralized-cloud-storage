@@ -1,17 +1,19 @@
 import CryptoJS from "crypto-js";
 
-// Use environment variable for encryption key with fallback for backward compatibility
-const SECRET_KEY = import.meta.env.VITE_AES_SECRET_KEY || "superSecret123";
+// Use fallback key for backward compatibility if userKey is not initialized yet
+const FALLBACK_KEY = import.meta.env.VITE_AES_SECRET_KEY || "superSecret123";
 
-export const encryptFile = (arrayBuffer) => {
+export const encryptFile = (arrayBuffer, userKey) => {
+  const secretKey = userKey || FALLBACK_KEY;
   const wordArray = CryptoJS.lib.WordArray.create(arrayBuffer);
-  const encrypted = CryptoJS.AES.encrypt(wordArray, SECRET_KEY).toString();
+  const encrypted = CryptoJS.AES.encrypt(wordArray, secretKey).toString();
   return encrypted;
 };
 
-export const decryptFile = (encryptedText) => {
+export const decryptFile = (encryptedText, userKey) => {
+  const secretKey = userKey || FALLBACK_KEY;
   try {
-    const decrypted = CryptoJS.AES.decrypt(encryptedText, SECRET_KEY);
+    const decrypted = CryptoJS.AES.decrypt(encryptedText, secretKey);
 
     // Convert the decrypted WordArray to a string of bytes
     const decryptedWordArray = decrypted.toString(CryptoJS.enc.Latin1);

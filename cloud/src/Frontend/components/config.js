@@ -21,11 +21,6 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-export const pinataConfig = {
-    pinataApiKey: import.meta.env.VITE_PINATA_API_KEY,
-    pinataSecretApiKey: import.meta.env.VITE_PINATA_SECRET_API_KEY
-};
-
 export const contractAddress = {
     contractAddress: import.meta.env.VITE_CONTRACT_ADDRESS,
     BLAST_RPC_URL: import.meta.env.VITE_BLAST_RPC_URL

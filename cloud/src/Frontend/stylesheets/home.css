@@ -619,8 +619,26 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.01) 0%, rgba(255, 255, 255, 0.03) 100%);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.04) 0%, rgba(15, 22, 38, 0.6) 100%);
   gap: 0.75rem;
+  position: relative;
+}
+
+.card-fallback-doc-box::after {
+  content: 'Click to Preview';
+  position: absolute;
+  bottom: 0.6rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.glass-file-card:hover .card-fallback-doc-box::after {
+  opacity: 1;
 }
 
 .fallback-type-icon-img {
@@ -1385,4 +1403,8 @@ html, body {
   .files-layout-grid {
     grid-template-columns: 1fr;
   }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
