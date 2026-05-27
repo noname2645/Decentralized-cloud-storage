@@ -1,32 +1,48 @@
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { db, auth, contractABI, NEBULA_CONTRACT_ADDRESS, SEPOLIA_CHAIN_ID } from "./config.js";
-import { collection, addDoc, getDocs, query, where, doc, getDoc, setDoc } from "firebase/firestore";
+import {
+  db,
+  auth,
+  contractABI,
+  NEBULA_CONTRACT_ADDRESS,
+  SEPOLIA_CHAIN_ID,
+} from "./config.js";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where,
+  doc,
+  getDoc,
+  setDoc,
+} from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import axios from "axios";
 import "../stylesheets/home.css";
 import { encryptFile, decryptFile } from "./aesUtils.js";
 import { PDFThumbnail, PDFFullViewer } from "./PDFRenderer.jsx";
 import CryptoJS from "crypto-js";
-import { 
-  Cloud, 
-  Search, 
-  UploadCloud, 
-  LogOut, 
-  Network, 
-  Check, 
-  Copy, 
-  Trash2, 
-  FileText, 
-  Image as ImageIcon, 
-  Video as VideoIcon, 
-  File as FileIcon, 
+import {
+  Cloud,
+  Search,
+  UploadCloud,
+  LogOut,
+  Network,
+  Check,
+  Copy,
+  Trash2,
+  FileText,
+  Image as ImageIcon,
+  Video as VideoIcon,
+  File as FileIcon,
   ExternalLink,
   Loader2,
   HardDrive,
   Wallet,
-  AlertCircle
+  AlertCircle,
+  Users,
 } from "lucide-react";
 
 const Home = () => {
@@ -35,30 +51,32 @@ const Home = () => {
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [user, setUser] = useState(null);
-  
+
   // Custom user-specific encryption key
   const [userKey, setUserKey] = useState(null);
-  
+
   // Wallet (MetaMask) state
-  const [walletAddress,   setWalletAddress]   = useState(null);
+  const [walletAddress, setWalletAddress] = useState(null);
   const [walletConnecting, setWalletConnecting] = useState(false);
+  const [showWalletModal, setShowWalletModal] = useState(false);
+  const [currentChainId, setCurrentChainId] = useState(null);
 
   // Custom Controls State
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [copiedCID, setCopiedCID] = useState(null);
   const [hoveredIndex, setHoveredIndex] = useState(null);
-  
+
   // Lazy previews & DOM cards tracking
   const [previewCache, setPreviewCache] = useState({});
   const fileCardsRef = useRef({});
-  
+
   const [uploadStatus, setUploadStatus] = useState({
     isOpen: false,
     stage: "encrypting", // 'encrypting', 'uploading', 'blockchain', 'success'
     fileName: "",
   });
-  
+
   const [preview, setPreview] = useState({
     isOpen: false,
     type: null,
@@ -84,6 +102,59 @@ const Home = () => {
       ? "http://localhost:3001"
       : "https://decentralized-cloud-storage.onrender.com";
 
+  // Helper: switch to Sepolia Network in MetaMask
+  const switchNetwork = async () => {
+    if (!window.ethereum) return;
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: SEPOLIA_CHAIN_ID }],
+      });
+      setCurrentChainId(SEPOLIA_CHAIN_ID);
+    } catch (switchErr) {
+      if (switchErr.code === 4902) {
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [
+            {
+              chainId: SEPOLIA_CHAIN_ID,
+              chainName: "Sepolia Testnet",
+              nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+              rpcUrls: ["https://rpc.sepolia.org"],
+              blockExplorerUrls: ["https://sepolia.etherscan.io"],
+            },
+          ],
+        });
+        setCurrentChainId(SEPOLIA_CHAIN_ID);
+      } else {
+        throw switchErr;
+      }
+    }
+  };
+
+  // Helper: Switch MetaMask account (asks MetaMask for accounts list)
+  const switchAccount = async () => {
+    if (!window.ethereum) return;
+    try {
+      setWalletConnecting(true);
+      await window.ethereum.request({
+        method: "wallet_requestPermissions",
+        params: [{ eth_accounts: {} }],
+      });
+      const accounts = await window.ethereum.request({
+        method: "eth_requestAccounts",
+      });
+      if (accounts.length > 0) {
+        setWalletAddress(accounts[0]);
+        localStorage.removeItem("walletDisconnectedByUser");
+      }
+      setWalletConnecting(false);
+    } catch (err) {
+      console.error("Failed to switch account:", err);
+      setWalletConnecting(false);
+    }
+  };
+
   // ─── MetaMask Wallet Connection ─────────────────────────────────────────────
   const connectWallet = async () => {
     if (!window.ethereum) {
@@ -94,37 +165,24 @@ const Home = () => {
       setWalletConnecting(true);
 
       // Request accounts
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-      const address  = accounts[0];
+      const accounts = await window.ethereum.request({
+        method: "eth_requestAccounts",
+      });
+      const address = accounts[0];
 
       // Ensure user is on Sepolia (chain 0xaa36a7 = 11155111)
       const chainId = await window.ethereum.request({ method: "eth_chainId" });
+      setCurrentChainId(chainId);
       if (chainId !== SEPOLIA_CHAIN_ID) {
         try {
-          await window.ethereum.request({
-            method:  "wallet_switchEthereumChain",
-            params:  [{ chainId: SEPOLIA_CHAIN_ID }],
-          });
+          await switchNetwork();
         } catch (switchErr) {
-          // Chain not added yet — add it
-          if (switchErr.code === 4902) {
-            await window.ethereum.request({
-              method: "wallet_addEthereumChain",
-              params: [{
-                chainId:         SEPOLIA_CHAIN_ID,
-                chainName:       "Sepolia Testnet",
-                nativeCurrency:  { name: "ETH", symbol: "ETH", decimals: 18 },
-                rpcUrls:         ["https://rpc.sepolia.org"],
-                blockExplorerUrls: ["https://sepolia.etherscan.io"],
-              }],
-            });
-          } else {
-            throw switchErr;
-          }
+          console.warn("User cancelled chain switch:", switchErr);
         }
       }
 
       setWalletAddress(address);
+      localStorage.removeItem("walletDisconnectedByUser");
       setWalletConnecting(false);
       return address;
     } catch (err) {
@@ -137,12 +195,39 @@ const Home = () => {
   // Re-sync wallet on page load if already connected
   useEffect(() => {
     if (window.ethereum) {
-      window.ethereum.request({ method: "eth_accounts" }).then((accounts) => {
-        if (accounts.length > 0) setWalletAddress(accounts[0]);
+      const disconnectedByUser = localStorage.getItem("walletDisconnectedByUser") === "true";
+      if (!disconnectedByUser) {
+        window.ethereum.request({ method: "eth_accounts" }).then((accounts) => {
+          if (accounts.length > 0) setWalletAddress(accounts[0]);
+        });
+      }
+      window.ethereum.request({ method: "eth_chainId" }).then((chainId) => {
+        setCurrentChainId(chainId);
       });
-      window.ethereum.on("accountsChanged", (accounts) => {
-        setWalletAddress(accounts[0] || null);
-      });
+
+      const handleAccountsChanged = (accounts) => {
+        if (accounts.length > 0) {
+          setWalletAddress(accounts[0]);
+          localStorage.removeItem("walletDisconnectedByUser");
+        } else {
+          setWalletAddress(null);
+          localStorage.setItem("walletDisconnectedByUser", "true");
+        }
+      };
+      
+      const handleChainChanged = (chainId) => {
+        setCurrentChainId(chainId);
+      };
+
+      window.ethereum.on("accountsChanged", handleAccountsChanged);
+      window.ethereum.on("chainChanged", handleChainChanged);
+
+      return () => {
+        if (window.ethereum.removeListener) {
+          window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
+          window.ethereum.removeListener("chainChanged", handleChainChanged);
+        }
+      };
     }
   }, []);
 
@@ -151,7 +236,7 @@ const Home = () => {
     if (!window.ethereum) throw new Error("MetaMask not available");
     // personal_sign expects the data as hex string
     const accounts = await window.ethereum.request({ method: "eth_accounts" });
-    const account  = accounts[0];
+    const account = accounts[0];
     if (!account) throw new Error("No wallet connected");
     // eth_sign on the raw hash bytes
     const signature = await window.ethereum.request({
@@ -172,15 +257,17 @@ const Home = () => {
           let keyVal = null;
           const userDocRef = doc(db, "users", currentUser.uid);
           const userDocSnap = await getDoc(userDocRef);
-          
+
           if (userDocSnap.exists() && userDocSnap.data().aesKey) {
             keyVal = userDocSnap.data().aesKey;
           } else {
             // Generate secure random 256-bit user key
-            keyVal = CryptoJS.lib.WordArray.random(32).toString(CryptoJS.enc.Hex);
+            keyVal = CryptoJS.lib.WordArray.random(32).toString(
+              CryptoJS.enc.Hex,
+            );
             await setDoc(userDocRef, { aesKey: keyVal }, { merge: true });
           }
-          
+
           setUserKey(keyVal);
           await fetchPinnedFilesFromBackend(currentUser);
         } catch (err) {
@@ -215,8 +302,8 @@ const Home = () => {
       // SEC-01: Call backend proxy to fetch Pinata rows securely
       const res = await axios.get(`${backendBaseURL}/api/user-files`, {
         headers: {
-          Authorization: `Bearer ${idToken}`
-        }
+          Authorization: `Bearer ${idToken}`,
+        },
       });
 
       // Map rows from backend response
@@ -256,26 +343,37 @@ const Home = () => {
   };
 
   // Lazy preview loader — downloads and decrypts a single file on demand
-  const loadPreview = useCallback(async (fileCID, type) => {
-    if (!userKey || !(type?.startsWith("image/") || type?.startsWith("video/") || type === "application/pdf")) return;
-    try {
-      const res = await fetch(`https://gateway.pinata.cloud/ipfs/${fileCID}`);
-      const encryptedText = await res.text();
-      const decryptedBytes = decryptFile(encryptedText, userKey);
+  const loadPreview = useCallback(
+    async (fileCID, type) => {
+      if (
+        !userKey ||
+        !(
+          type?.startsWith("image/") ||
+          type?.startsWith("video/") ||
+          type === "application/pdf"
+        )
+      )
+        return;
+      try {
+        const res = await fetch(`https://gateway.pinata.cloud/ipfs/${fileCID}`);
+        const encryptedText = await res.text();
+        const decryptedBytes = decryptFile(encryptedText, userKey);
 
-      if (type === "application/pdf") {
-        // Store raw Uint8Array bytes — PDFThumbnail renders them via PDF.js (no blob URL needed)
-        setPreviewCache((prev) => ({ ...prev, [fileCID]: decryptedBytes }));
-      } else {
-        // Images and videos use blob object URLs
-        const blob = new Blob([decryptedBytes], { type });
-        const url = URL.createObjectURL(blob);
-        setPreviewCache((prev) => ({ ...prev, [fileCID]: url }));
+        if (type === "application/pdf") {
+          // Store raw Uint8Array bytes — PDFThumbnail renders them via PDF.js (no blob URL needed)
+          setPreviewCache((prev) => ({ ...prev, [fileCID]: decryptedBytes }));
+        } else {
+          // Images and videos use blob object URLs
+          const blob = new Blob([decryptedBytes], { type });
+          const url = URL.createObjectURL(blob);
+          setPreviewCache((prev) => ({ ...prev, [fileCID]: url }));
+        }
+      } catch (err) {
+        console.error("Failed to load preview for CID:", fileCID);
       }
-    } catch (err) {
-      console.error("Failed to load preview for CID:", fileCID);
-    }
-  }, [userKey]);
+    },
+    [userKey],
+  );
 
   // IntersectionObserver: load previews only when file cards scroll into view
   useEffect(() => {
@@ -334,9 +432,13 @@ const Home = () => {
 
     try {
       // ── Step 1: AES-256 Encrypt ────────────────────────────────────────────
-      setUploadStatus({ isOpen: true, stage: "encrypting", fileName: file.name });
+      setUploadStatus({
+        isOpen: true,
+        stage: "encrypting",
+        fileName: file.name,
+      });
       await new Promise((r) => setTimeout(r, 300));
-      const originalBuffer  = await file.arrayBuffer();
+      const originalBuffer = await file.arrayBuffer();
       const encryptedString = encryptFile(originalBuffer, userKey);
 
       // ── Step 2: Upload encrypted blob to IPFS (backend handles Pinata) ─────
@@ -349,14 +451,27 @@ const Home = () => {
       let signatureData = {};
 
       if (walletAddress) {
+        // Enforce Sepolia network
+        if (currentChainId !== SEPOLIA_CHAIN_ID) {
+          try {
+            await switchNetwork();
+          } catch (switchErr) {
+            throw new Error("Please switch to Sepolia Testnet in MetaMask before uploading.");
+          }
+        }
         try {
           // Ask backend for nonce + deadline first (we need CID from IPFS first)
           // So we upload to IPFS first, then sign with the returned CID
           // Upload without signature to get CID
           const ipfsRes = await axios.post(
             `${backendBaseURL}/api/upload`,
-            { fileName: file.name, ciphertext: encryptedString, fileType: file.type || "unknown", fileSize: file.size },
-            { headers: { Authorization: `Bearer ${idToken}` } }
+            {
+              fileName: file.name,
+              ciphertext: encryptedString,
+              fileType: file.type || "unknown",
+              fileSize: file.size,
+            },
+            { headers: { Authorization: `Bearer ${idToken}` } },
           );
           const { fileCID } = ipfsRes.data;
 
@@ -364,7 +479,7 @@ const Home = () => {
           const prepRes = await axios.post(
             `${backendBaseURL}/api/prepare-upload`,
             { userAddress: walletAddress, fileName: file.name, fileCID },
-            { headers: { Authorization: `Bearer ${idToken}` } }
+            { headers: { Authorization: `Bearer ${idToken}` } },
           );
           const { nonce, deadline, msgHash } = prepRes.data;
 
@@ -374,14 +489,21 @@ const Home = () => {
           // Send signature to backend — backend pays gas and relays the tx
           const finalRes = await axios.post(
             `${backendBaseURL}/api/relay-upload`,
-            { fileName: file.name, fileCID, userAddress: walletAddress, signature, nonce, deadline },
-            { headers: { Authorization: `Bearer ${idToken}` } }
+            {
+              fileName: file.name,
+              fileCID,
+              userAddress: walletAddress,
+              signature,
+              nonce,
+              deadline,
+            },
+            { headers: { Authorization: `Bearer ${idToken}` } },
           );
 
           signatureData = {
             fileCID,
             transactionHash: finalRes.data.txHash,
-            blockNumber:     finalRes.data.blockNumber,
+            blockNumber: finalRes.data.blockNumber,
           };
         } catch (signErr) {
           // Wallet sign cancelled or failed — still save to IPFS-only
@@ -398,21 +520,26 @@ const Home = () => {
       if (!signatureData.fileCID) {
         const ipfsRes = await axios.post(
           `${backendBaseURL}/api/upload`,
-          { fileName: file.name, ciphertext: encryptedString, fileType: file.type || "unknown", fileSize: file.size },
-          { headers: { Authorization: `Bearer ${idToken}` } }
+          {
+            fileName: file.name,
+            ciphertext: encryptedString,
+            fileType: file.type || "unknown",
+            fileSize: file.size,
+          },
+          { headers: { Authorization: `Bearer ${idToken}` } },
         );
         signatureData.fileCID = ipfsRes.data.fileCID;
       }
 
       // ── Step 4: Store receipt in Firestore ────────────────────────────────
       await addDoc(collection(db, "files"), {
-        userId:          user.uid,
-        walletAddress:   walletAddress || null,
-        fileCID:         signatureData.fileCID,
+        userId: user.uid,
+        walletAddress: walletAddress || null,
+        fileCID: signatureData.fileCID,
         transactionHash: signatureData.transactionHash || null,
-        blockNumber:     signatureData.blockNumber     || null,
-        type:            file.type || "unknown",
-        timestamp:       new Date(),
+        blockNumber: signatureData.blockNumber || null,
+        type: file.type || "unknown",
+        timestamp: new Date(),
       });
 
       // ── Step 5: Success ───────────────────────────────────────────────────
@@ -425,14 +552,19 @@ const Home = () => {
       fetchPinnedFilesFromBackend(user);
     } catch (error) {
       console.error("Upload failed:", error);
-      alert("Upload failed: " + (error.response?.data?.details || error.message));
+      alert(
+        "Upload failed: " + (error.response?.data?.details || error.message),
+      );
       setUploadStatus({ isOpen: false, stage: "encrypting", fileName: "" });
       setLoading(false);
     }
   };
 
   const handleDelete = async (fileCID, onChainFileId) => {
-    if (!window.confirm("Delete this file from IPFS and the blockchain record?")) return;
+    if (
+      !window.confirm("Delete this file from IPFS and the blockchain record?")
+    )
+      return;
 
     try {
       const idToken = await user.getIdToken(true);
@@ -441,11 +573,19 @@ const Home = () => {
       await axios.post(
         `${backendBaseURL}/api/delete`,
         { cid: fileCID },
-        { headers: { Authorization: `Bearer ${idToken}` } }
+        { headers: { Authorization: `Bearer ${idToken}` } },
       );
 
       // 2. If we have the on-chain fileId, soft-delete via user's wallet
       if (onChainFileId && walletAddress) {
+        if (currentChainId !== SEPOLIA_CHAIN_ID) {
+          try {
+            await switchNetwork();
+          } catch (switchErr) {
+            console.warn("Could not switch to Sepolia for deleting file:", switchErr.message);
+            throw new Error("Please switch to Sepolia Testnet in MetaMask to execute the on-chain delete.");
+          }
+        }
         try {
           const contract = await getSignedContract();
           const tx = await contract.deleteFile(onChainFileId);
@@ -478,7 +618,9 @@ const Home = () => {
         return;
       }
 
-      const res = await fetch(`https://gateway.pinata.cloud/ipfs/${file.fileCID}`);
+      const res = await fetch(
+        `https://gateway.pinata.cloud/ipfs/${file.fileCID}`,
+      );
       const encryptedText = await res.text();
       const decryptedBytes = decryptFile(encryptedText, userKey);
 
@@ -527,29 +669,65 @@ const Home = () => {
   const getFileCategory = (type) => {
     if (type?.startsWith("image/")) return "Images";
     if (type?.startsWith("video/")) return "Videos";
-    if (type === "application/pdf" || type?.startsWith("text/")) return "Documents";
+    if (type === "application/pdf" || type?.startsWith("text/"))
+      return "Documents";
     return "Others";
   };
 
   // Filter and search logic
   const filteredFiles = files.filter((file) => {
-    const matchesSearch = file.fileName?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === "All" || getFileCategory(file.type) === selectedCategory;
+    const matchesSearch = file.fileName
+      ?.toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    const matchesCategory =
+      selectedCategory === "All" ||
+      getFileCategory(file.type) === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
   // Calculate totals for navigation stats
   const totalFiles = files.length;
-  const imageCount = files.filter(f => getFileCategory(f.type) === "Images").length;
-  const videoCount = files.filter(f => getFileCategory(f.type) === "Videos").length;
-  const docCount = files.filter(f => getFileCategory(f.type) === "Documents").length;
-  const otherCount = files.filter(f => getFileCategory(f.type) === "Others").length;
+  const imageCount = files.filter(
+    (f) => getFileCategory(f.type) === "Images",
+  ).length;
+  const videoCount = files.filter(
+    (f) => getFileCategory(f.type) === "Videos",
+  ).length;
+  const docCount = files.filter(
+    (f) => getFileCategory(f.type) === "Documents",
+  ).length;
+  const otherCount = files.filter(
+    (f) => getFileCategory(f.type) === "Others",
+  ).length;
 
   const getFileIconComponent = (fileType) => {
-    if (fileType?.startsWith("image/")) return <ImageIcon className="fallback-type-icon-img" style={{ color: "#38bdf8" }} />;
-    if (fileType?.startsWith("video/")) return <VideoIcon className="fallback-type-icon-img" style={{ color: "#a855f7" }} />;
-    if (fileType === "application/pdf") return <FileText className="fallback-type-icon-img" style={{ color: "#ef4444" }} />;
-    return <FileIcon className="fallback-type-icon-img" style={{ color: "#64748b" }} />;
+    if (fileType?.startsWith("image/"))
+      return (
+        <ImageIcon
+          className="fallback-type-icon-img"
+          style={{ color: "#38bdf8" }}
+        />
+      );
+    if (fileType?.startsWith("video/"))
+      return (
+        <VideoIcon
+          className="fallback-type-icon-img"
+          style={{ color: "#a855f7" }}
+        />
+      );
+    if (fileType === "application/pdf")
+      return (
+        <FileText
+          className="fallback-type-icon-img"
+          style={{ color: "#ef4444" }}
+        />
+      );
+    return (
+      <FileIcon
+        className="fallback-type-icon-img"
+        style={{ color: "#64748b" }}
+      />
+    );
   };
 
   // Welcome Modal Component
@@ -586,7 +764,7 @@ const Home = () => {
             color: "rgba(239, 68, 68, 0.2)",
             borderColor: "rgba(239, 68, 68, 0.4)",
             icon: "🔐",
-            index: 0
+            index: 0,
           };
         case "uploading":
           return {
@@ -595,7 +773,7 @@ const Home = () => {
             color: "rgba(56, 189, 248, 0.2)",
             borderColor: "rgba(56, 189, 248, 0.4)",
             icon: "🛰️",
-            index: 1
+            index: 1,
           };
         case "blockchain":
           return {
@@ -604,7 +782,7 @@ const Home = () => {
             color: "rgba(168, 85, 247, 0.2)",
             borderColor: "rgba(168, 85, 247, 0.4)",
             icon: "⛓️",
-            index: 2
+            index: 2,
           };
         case "success":
           return {
@@ -613,7 +791,7 @@ const Home = () => {
             color: "rgba(16, 185, 129, 0.2)",
             borderColor: "rgba(16, 185, 129, 0.4)",
             icon: "✅",
-            index: 3
+            index: 3,
           };
         default:
           return {
@@ -622,7 +800,7 @@ const Home = () => {
             color: "rgba(100, 116, 139, 0.2)",
             borderColor: "rgba(100, 116, 139, 0.4)",
             icon: "⏳",
-            index: 0
+            index: 0,
           };
       }
     };
@@ -631,18 +809,18 @@ const Home = () => {
     const steps = [
       { id: "encrypting", label: "Local Cryptography Encryption", icon: "🔐" },
       { id: "uploading", label: "Decentralized IPFS Storage", icon: "🛰️" },
-      { id: "blockchain", label: "Ethereum Contract Verification", icon: "⛓️" }
+      { id: "blockchain", label: "Ethereum Contract Verification", icon: "⛓️" },
     ];
 
     return (
       <div className="upload-modal-overlay">
         <div className="upload-modal-box">
-          <div 
-            className="upload-icon-glow-ring" 
-            style={{ 
-              backgroundColor: details.color, 
+          <div
+            className="upload-icon-glow-ring"
+            style={{
+              backgroundColor: details.color,
               border: `1px solid ${details.borderColor}`,
-              boxShadow: `0 0 25px ${details.color}`
+              boxShadow: `0 0 25px ${details.color}`,
             }}
           >
             <span>{details.icon}</span>
@@ -650,17 +828,19 @@ const Home = () => {
 
           <h3 className="upload-process-title">{details.title}</h3>
           <p className="upload-process-subtitle">{details.desc}</p>
-          <span className="uploading-filename-txt">{uploadStatus.fileName}</span>
+          <span className="uploading-filename-txt">
+            {uploadStatus.fileName}
+          </span>
 
           <div className="stages-flow-checklist">
             {steps.map((step, idx) => {
               const isCompleted = idx < details.index;
               const isActive = uploadStatus.stage === step.id;
-              
+
               return (
-                <div 
-                  key={step.id} 
-                  className={`checklist-step-row ${isCompleted ? 'completed' : ''} ${isActive ? 'active' : ''}`}
+                <div
+                  key={step.id}
+                  className={`checklist-step-row ${isCompleted ? "completed" : ""} ${isActive ? "active" : ""}`}
                 >
                   <div className="step-label-group">
                     <span style={{ fontSize: "1.1rem" }}>{step.icon}</span>
@@ -670,9 +850,14 @@ const Home = () => {
                     {isCompleted ? (
                       <Check style={{ color: "#10b981" }} />
                     ) : isActive ? (
-                      <Loader2 className="process-loading-spinner-svg" style={{ color: "#4facfe" }} />
+                      <Loader2
+                        className="process-loading-spinner-svg"
+                        style={{ color: "#4facfe" }}
+                      />
                     ) : (
-                      <span style={{ color: "#475569", fontSize: "0.85rem" }}>Pending</span>
+                      <span style={{ color: "#475569", fontSize: "0.85rem" }}>
+                        Pending
+                      </span>
                     )}
                   </div>
                 </div>
@@ -701,7 +886,9 @@ const Home = () => {
       }
       return (
         <div style={{ padding: "2rem", textAlign: "center" }}>
-          <p style={{ color: "#94a3b8", marginBottom: "1rem" }}>Interactive preview unavailable for this type.</p>
+          <p style={{ color: "#94a3b8", marginBottom: "1rem" }}>
+            Interactive preview unavailable for this type.
+          </p>
           <a
             href={preview.content}
             download={preview.fileName}
@@ -715,14 +902,24 @@ const Home = () => {
     };
 
     return (
-      <div className={`media-overlay-backdrop ${preview.isOpen ? "active-overlay" : ""}`} onClick={closePreview}>
-        <div className="media-enlarged-wrapper" onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`media-overlay-backdrop ${preview.isOpen ? "active-overlay" : ""}`}
+        onClick={closePreview}
+      >
+        <div
+          className="media-enlarged-wrapper"
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="media-modal-header">
             <h3 className="media-modal-title">{preview.fileName}</h3>
-            <button className="close-modal-round-btn" onClick={closePreview}>×</button>
+            <button className="close-modal-round-btn" onClick={closePreview}>
+              ×
+            </button>
           </div>
 
-          <div className={`media-modal-body ${preview.type === "application/pdf" ? "pdf-preview" : ""}`}>
+          <div
+            className={`media-modal-body ${preview.type === "application/pdf" ? "pdf-preview" : ""}`}
+          >
             {getPreviewContent()}
           </div>
 
@@ -751,6 +948,127 @@ const Home = () => {
     );
   };
 
+  const WalletInfoModal = () => {
+    if (!showWalletModal || !walletAddress) return null;
+    const isWrongNetwork = currentChainId !== SEPOLIA_CHAIN_ID;
+    return (
+      <div className="welcome-modal-overlay" onClick={() => setShowWalletModal(false)}>
+        <div className="welcome-modal wallet-info-modal-box" onClick={(e) => e.stopPropagation()}>
+          <button className="close-modal-round-btn modal-close-pos" onClick={() => setShowWalletModal(false)}>×</button>
+          <div className="welcome-icon-box wallet-icon-glow">
+            <Wallet size={32} />
+          </div>
+          <h2 className="welcome-title-glow">
+            {isWrongNetwork ? "Network Warning" : "Connected Wallet"}
+          </h2>
+          
+          <div className="wallet-details-container">
+            <div className="wallet-detail-row">
+              <span className="wallet-detail-label">Network</span>
+              {isWrongNetwork ? (
+                <span className="wallet-detail-value text-error">Wrong Network (Expected Sepolia)</span>
+              ) : (
+                <span className="wallet-detail-value text-primary">Sepolia Testnet</span>
+              )}
+            </div>
+            
+            <div className="wallet-detail-row">
+              <span className="wallet-detail-label">Account Address</span>
+              <span className="wallet-detail-value address-hex" title={walletAddress}>
+                {walletAddress}
+              </span>
+            </div>
+          </div>
+
+          <div className="wallet-modal-actions">
+            {isWrongNetwork ? (
+              <button 
+                className="wallet-action-btn-primary"
+                onClick={switchNetwork}
+              >
+                <span>Switch to Sepolia</span>
+              </button>
+            ) : (
+              <>
+                <button 
+                  className="wallet-action-btn-secondary"
+                  onClick={() => {
+                    navigator.clipboard.writeText(walletAddress);
+                    alert("Address copied to clipboard!");
+                  }}
+                >
+                  <Copy size={14} />
+                  <span>Copy Address</span>
+                </button>
+                
+                <button 
+                  className="wallet-action-btn-secondary"
+                  onClick={switchAccount}
+                >
+                  <Users size={14} />
+                  <span>Switch Account</span>
+                </button>
+                
+                <a 
+                  href={`https://sepolia.etherscan.io/address/${walletAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="wallet-action-link"
+                  style={{ gridColumn: "span 2" }}
+                >
+                  <ExternalLink size={14} />
+                  <span>View on Explorer</span>
+                </a>
+              </>
+            )}
+          </div>
+
+          <button 
+            className="wallet-disconnect-action-btn"
+            onClick={() => {
+              setWalletAddress(null);
+              localStorage.setItem("walletDisconnectedByUser", "true");
+              setShowWalletModal(false);
+            }}
+          >
+            Disconnect Wallet
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const WalletLockOverlay = () => {
+    if (walletAddress) return null;
+    return (
+      <div className="wallet-lock-backdrop">
+        <div className="wallet-lock-card">
+          <div className="wallet-lock-icon">
+            <Wallet size={48} className="pulse-slow" />
+          </div>
+          <h2 className="wallet-lock-title">Web3 Wallet Connection Required</h2>
+          <p className="wallet-lock-desc">
+            Nebula Vault uses client-side cryptography and decentralized blockchain ledger indexing. Connect your MetaMask wallet to decrypt, view, and manage your secure drive.
+          </p>
+          <button
+            className="wallet-lock-connect-btn"
+            onClick={connectWallet}
+            disabled={walletConnecting}
+          >
+            <Wallet size={20} />
+            <span>{walletConnecting ? "Authorizing MetaMask..." : "Connect MetaMask Wallet"}</span>
+          </button>
+          
+          <div className="wallet-lock-requirements">
+            <span className="req-item">✓ AES-256 Encryption</span>
+            <span className="req-item">✓ Decentralized IPFS Storage</span>
+            <span className="req-item">✓ Ethereum Sepolia receipts</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="dashboard-container">
       {/* Sidebar Navigation */}
@@ -764,7 +1082,7 @@ const Home = () => {
 
         <ul className="sidebar-menu">
           <li>
-            <button 
+            <button
               className={`menu-item-btn ${selectedCategory === "All" ? "active" : ""}`}
               onClick={() => setSelectedCategory("All")}
             >
@@ -776,7 +1094,7 @@ const Home = () => {
             </button>
           </li>
           <li>
-            <button 
+            <button
               className={`menu-item-btn ${selectedCategory === "Images" ? "active" : ""}`}
               onClick={() => setSelectedCategory("Images")}
             >
@@ -788,7 +1106,7 @@ const Home = () => {
             </button>
           </li>
           <li>
-            <button 
+            <button
               className={`menu-item-btn ${selectedCategory === "Videos" ? "active" : ""}`}
               onClick={() => setSelectedCategory("Videos")}
             >
@@ -800,7 +1118,7 @@ const Home = () => {
             </button>
           </li>
           <li>
-            <button 
+            <button
               className={`menu-item-btn ${selectedCategory === "Documents" ? "active" : ""}`}
               onClick={() => setSelectedCategory("Documents")}
             >
@@ -840,7 +1158,9 @@ const Home = () => {
                   </span>
                 </>
               ) : (
-                <span style={{ color: "var(--warning)", fontSize: "0.75rem" }}>Not connected</span>
+                <span style={{ color: "var(--warning)", fontSize: "0.75rem" }}>
+                  Not connected
+                </span>
               )}
             </div>
           </div>
@@ -852,32 +1172,6 @@ const Home = () => {
           </div>
         </div>
 
-        {/* Wallet Connect Button */}
-        {!walletAddress ? (
-          <button
-            className="wallet-connect-btn"
-            onClick={connectWallet}
-            disabled={walletConnecting}
-          >
-            <Wallet size={15} />
-            <span>{walletConnecting ? "Connecting…" : "Connect Wallet"}</span>
-          </button>
-        ) : (
-          <div className="wallet-connected-pill">
-            <span className="wallet-dot-active" />
-            <span title={walletAddress}>
-              {walletAddress.slice(0, 6)}…{walletAddress.slice(-4)}
-            </span>
-            <button
-              className="wallet-disconnect-btn"
-              onClick={() => setWalletAddress(null)}
-              title="Disconnect wallet"
-            >
-              ×
-            </button>
-          </div>
-        )}
-
         {/* Profile Card Info */}
         <div className="sidebar-profile">
           <div className="profile-detail-box">
@@ -888,7 +1182,11 @@ const Home = () => {
               {user?.email || "Unknown Guest"}
             </span>
           </div>
-          <button className="logout-icon-btn" onClick={handleLogout} title="Sign Out">
+          <button
+            className="logout-icon-btn"
+            onClick={handleLogout}
+            title="Sign Out"
+          >
             <LogOut size={18} />
           </button>
         </div>
@@ -899,9 +1197,9 @@ const Home = () => {
         {/* Top Controls Header */}
         <header className="dashboard-controls-header">
           <div className="search-input-wrapper">
-            <input 
-              type="text" 
-              placeholder="Search by filename" 
+            <input
+              type="text"
+              placeholder="Search by filename"
               className="search-input-field"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -911,18 +1209,40 @@ const Home = () => {
 
           <div className="header-actions-panel">
             {/* Wallet connect shortcut in header if not already shown in sidebar */}
-            {!walletAddress && (
+            {/* Wallet Connect Button */}
+            {!walletAddress ? (
               <button
-                className="wallet-connect-btn-inline"
+                className="wallet-connect-btn"
                 onClick={connectWallet}
                 disabled={walletConnecting}
-                title="Connect MetaMask to sign blockchain transactions"
               >
-                <AlertCircle size={15} />
-                <span>Connect Wallet</span>
+                <Wallet size={15} />
+                <span>
+                  {walletConnecting ? "Connecting…" : "Connect Wallet"}
+                </span>
+              </button>
+            ) : currentChainId !== SEPOLIA_CHAIN_ID ? (
+              <button
+                className="wallet-connected-pill wrong-network clickable"
+                onClick={() => setShowWalletModal(true)}
+                title="Wrong Network - Click to switch"
+              >
+                <span className="wallet-dot-inactive" />
+                <span className="wallet-address-short">Wrong Network</span>
+              </button>
+            ) : (
+              <button
+                className="wallet-connected-pill clickable"
+                onClick={() => setShowWalletModal(true)}
+                title="View Wallet Info"
+              >
+                <span className="wallet-dot-active" />
+                <span className="wallet-address-short" title={walletAddress}>
+                  {walletAddress.slice(0, 6)}…{walletAddress.slice(-4)}
+                </span>
               </button>
             )}
-            <button 
+            <button
               className="upload-action-btn"
               onClick={handleFileSelect}
               disabled={loading}
@@ -940,7 +1260,9 @@ const Home = () => {
               Secured Web3 <span>Vault</span>
             </h1>
             <p className="welcome-banner-desc">
-              All files are client-side AES encrypted before broadcast, distributed redundantly across IPFS, and verified via immutable Ethereum ledger receipts.
+              All files are client-side AES encrypted before broadcast,
+              distributed redundantly across IPFS, and verified via immutable
+              Ethereum ledger receipts.
             </p>
           </div>
 
@@ -969,12 +1291,15 @@ const Home = () => {
               </div>
               <h3 className="empty-state-title">No Secured Files Located</h3>
               <p className="empty-state-desc">
-                {searchQuery 
-                  ? `No matching records found for "${searchQuery}" in your current filter category.` 
+                {searchQuery
+                  ? `No matching records found for "${searchQuery}" in your current filter category.`
                   : "Your decentralized locker is currently empty. Protect and broadcast your files instantly using client-side cryptography."}
               </p>
               {!searchQuery && (
-                <button className="empty-state-upload-btn" onClick={handleFileSelect}>
+                <button
+                  className="empty-state-upload-btn"
+                  onClick={handleFileSelect}
+                >
                   <UploadCloud size={16} />
                   <span>Secure Your First File</span>
                 </button>
@@ -985,14 +1310,21 @@ const Home = () => {
               {filteredFiles.map((file, index) => {
                 const cachedPreview = previewCache[file.fileCID];
                 // Blob URL string for images/videos, Uint8Array for PDFs
-                const cachedPreviewUrl = typeof cachedPreview === "string" ? cachedPreview : null;
-                const cachedPdfBytes = cachedPreview instanceof Uint8Array ? cachedPreview : null;
-                const hasPreviewType = file.type?.startsWith("image/") || file.type?.startsWith("video/") || file.type === "application/pdf";
-                
+                const cachedPreviewUrl =
+                  typeof cachedPreview === "string" ? cachedPreview : null;
+                const cachedPdfBytes =
+                  cachedPreview instanceof Uint8Array ? cachedPreview : null;
+                const hasPreviewType =
+                  file.type?.startsWith("image/") ||
+                  file.type?.startsWith("video/") ||
+                  file.type === "application/pdf";
+
                 return (
-                  <div 
+                  <div
                     key={file.fileCID}
-                    ref={(el) => { fileCardsRef.current[file.fileCID] = el; }}
+                    ref={(el) => {
+                      fileCardsRef.current[file.fileCID] = el;
+                    }}
                     data-cid={file.fileCID}
                     data-type={file.type}
                     className="glass-file-card"
@@ -1003,9 +1335,20 @@ const Home = () => {
                     {/* Media Display Preview / Fallback icons */}
                     <div className="card-media-view-box">
                       {file.type?.startsWith("image/") && cachedPreviewUrl ? (
-                        <img src={cachedPreviewUrl} alt={file.fileName} loading="lazy" />
-                      ) : file.type?.startsWith("video/") && cachedPreviewUrl ? (
-                        <video src={cachedPreviewUrl} muted loop autoPlay playsInline />
+                        <img
+                          src={cachedPreviewUrl}
+                          alt={file.fileName}
+                          loading="lazy"
+                        />
+                      ) : file.type?.startsWith("video/") &&
+                        cachedPreviewUrl ? (
+                        <video
+                          src={cachedPreviewUrl}
+                          muted
+                          loop
+                          autoPlay
+                          playsInline
+                        />
                       ) : file.type === "application/pdf" && cachedPdfBytes ? (
                         // PDF.js thumbnail — renders page 1 directly to canvas
                         <PDFThumbnail pdfBytes={cachedPdfBytes} width={280} />
@@ -1019,17 +1362,22 @@ const Home = () => {
                       )}
 
                       {/* Shimmer loader while content is decrypting client-side */}
-                      {hasPreviewType && !cachedPreviewUrl && !cachedPdfBytes && (
-                        <div className="preview-skeleton">
-                          <span>Decrypting Block...</span>
-                        </div>
-                      )}
+                      {hasPreviewType &&
+                        !cachedPreviewUrl &&
+                        !cachedPdfBytes && (
+                          <div className="preview-skeleton">
+                            <span>Decrypting Block...</span>
+                          </div>
+                        )}
                     </div>
 
                     {/* Meta Footer Details panel */}
                     <div className="file-card-details-footer">
                       <div className="file-title-row-box">
-                        <h4 className="file-display-name-text" title={file.fileName}>
+                        <h4
+                          className="file-display-name-text"
+                          title={file.fileName}
+                        >
                           {file.fileName}
                         </h4>
                         <span className="file-type-pill-label">
@@ -1039,7 +1387,7 @@ const Home = () => {
 
                       <div className="file-details-meta-row">
                         {file.transactionHash ? (
-                          <a 
+                          <a
                             href={`https://sepolia.etherscan.io/tx/${file.transactionHash}`}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -1051,23 +1399,39 @@ const Home = () => {
                             <ExternalLink />
                           </a>
                         ) : (
-                          <span style={{ fontSize: "0.7rem", color: "var(--text-sub)" }}>Off-ledger proof</span>
+                          <span
+                            style={{
+                              fontSize: "0.7rem",
+                              color: "var(--text-sub)",
+                            }}
+                          >
+                            Off-ledger proof
+                          </span>
                         )}
 
-                        <button 
+                        <button
                           className="round-control-action-btn"
                           onClick={(e) => handleCopyCID(e, file.fileCID)}
                           title="Copy Decentralized IPFS CID Reference Hash"
-                          style={{ color: copiedCID === file.fileCID ? "var(--success)" : "inherit" }}
+                          style={{
+                            color:
+                              copiedCID === file.fileCID
+                                ? "var(--success)"
+                                : "inherit",
+                          }}
                         >
-                          {copiedCID === file.fileCID ? <Check size={14} /> : <Copy size={14} />}
+                          {copiedCID === file.fileCID ? (
+                            <Check size={14} />
+                          ) : (
+                            <Copy size={14} />
+                          )}
                         </button>
                       </div>
                     </div>
 
                     {/* Card Actions overlay buttons */}
                     <div className="card-overlay-actions-top">
-                      <button 
+                      <button
                         className="round-control-action-btn delete-trigger-btn"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1087,9 +1451,11 @@ const Home = () => {
       </main>
 
       {/* Overlay Modals */}
+      <WalletLockOverlay />
       <WelcomeModal />
       <UploadModal />
       <PreviewOverlay />
+      <WalletInfoModal />
     </div>
   );
 };
