@@ -1,5 +1,5 @@
-const PinataStorage = artifacts.require("PinataStorage");
+const NebulaStorage = artifacts.require("NebulaStorage");
 
-module.exports=function(deployer) {
-    deployer.deploy(PinataStorage,"Hello blockchain");
+module.exports = function (deployer) {
+  deployer.deploy(NebulaStorage);
 };

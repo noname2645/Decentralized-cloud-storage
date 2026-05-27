@@ -1,155 +1,53 @@
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
-const express = require('express');
-const cors = require('cors');
-const { ethers } = require('ethers');
-const https = require('https');
-const crypto = require('crypto');
-const axios = require('axios');
+const express  = require('express');
+const cors     = require('cors');
+const https    = require('https');
+const crypto   = require('crypto');
+const axios    = require('axios');
 const FormData = require('form-data');
+const fs       = require('fs');
+const { ethers } = require('ethers');
 
 console.log("ENV PATH:", path.resolve(__dirname, '../../.env'));
-console.log("Loaded RPC:", process.env.BLAST_API_URL ? '✅ Configured' : '❌ Missing');
+console.log("Pinata API Key:  ", process.env.PINATA_API_KEY        ? '✅ Configured' : '❌ Missing');
+console.log("Firebase Project:", process.env.FIREBASE_PROJECT_ID   ? '✅ Configured' : '❌ Missing');
+console.log("Blockchain relay:", process.env.PRIVATE_KEY           ? '✅ Relay wallet configured' : '❌ Missing');
+console.log("Contract address:", process.env.NEBULA_CONTRACT_ADDRESS || '❌ Missing');
 
-// Contract ABI
-const contractABI = [
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "fileId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "name",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "ipfsHash",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "uploader",
-        "type": "address"
-      }
-    ],
-    "name": "FileUploaded",
-    "type": "event"
-  },
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "fileCount",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "name": "files",
-    "outputs": [
-      {
-        "internalType": "string",
-        "name": "name",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "ipfsHash",
-        "type": "string"
-      },
-      {
-        "internalType": "address",
-        "name": "uploader",
-        "type": "address"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": false,
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "_name",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "_ipfsHash",
-        "type": "string"
-      }
-    ],
-    "name": "uploadFile",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_fileId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getFile",
-    "outputs": [
-      {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      },
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  }
+// ─── Blockchain relay setup ────────────────────────────────────────────────────
+// Backend wallet only RELAYS transactions — pays gas on behalf of users.
+// It does NOT own any files; ecrecover in the contract stores the user's address.
+const provider = new ethers.providers.JsonRpcProvider(process.env.BLAST_API_URL);
+const relayWallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+
+const NEBULA_ABI = [
+  "function uploadFileMeta(string _name, string _ipfsHash, address _user, uint256 _nonce, uint256 _deadline, bytes _signature) external",
+  "function deleteFileMeta(uint256 _fileId, address _user, uint256 _nonce, uint256 _deadline, bytes _signature) external",
+  "function nonces(address) view returns (uint256)",
+  "function fileCount() view returns (uint256)"
 ];
 
-console.log('✅ Contract ABI loaded successfully');
+const nebulaContract = new ethers.Contract(
+  process.env.NEBULA_CONTRACT_ADDRESS,
+  NEBULA_ABI,
+  relayWallet
+);
 
-const app = express();
+(async () => {
+  try {
+    const count = await nebulaContract.fileCount();
+    console.log(`✅ NebulaStorage contract live — ${count} files on-chain`);
+  } catch (err) {
+    console.error('❌ Contract init check failed:', err.message);
+  }
+})();
+
+const app  = express();
 const PORT = process.env.PORT || 3001;
 
-// CORS setup
+// ─── CORS ──────────────────────────────────────────────────────────────────────
 app.use(cors({
   origin: [
     'http://localhost:3000',
@@ -162,339 +60,273 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
-// Set body limit higher for large encrypted files (e.g. 50MB)
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Ethers setup
-const provider = new ethers.providers.JsonRpcProvider(process.env.BLAST_API_URL);
-const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
-const contract = new ethers.Contract(process.env.CONTRACT_ADDRESS, contractABI, signer);
-
-(async () => {
-  try {
-    console.log("Signer Address:", signer.address.slice(0, 6) + '...' + signer.address.slice(-4));
-    const code = await provider.getCode(process.env.CONTRACT_ADDRESS);
-    console.log("Contract Code:", code && code !== '0x' ? '✅ Deployed' : '❌ Not found');
-  } catch (err) {
-    console.error("Initialization error checking signer:", err.message);
-  }
-})();
-
-console.log('✅ Ethers provider and contract initialized');
-
-// ==========================================================================
-// SEC-03: CRITICAL CRYPTOGRAPHIC FIREBASE TOKEN VERIFIER (NO CREDENTIALS NEEDED)
-// ==========================================================================
+// =============================================================================
+// Firebase token verifier (pure crypto — no Admin SDK needed)
+// =============================================================================
 let publicKeysCache = null;
 let cacheExpiration = 0;
 
-const fetchGooglePublicKeys = () => {
-  return new Promise((resolve, reject) => {
-    if (publicKeysCache && Date.now() < cacheExpiration) {
-      return resolve(publicKeysCache);
-    }
-    
-    https.get('https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com', (res) => {
+const fetchGooglePublicKeys = () => new Promise((resolve, reject) => {
+  if (publicKeysCache && Date.now() < cacheExpiration) return resolve(publicKeysCache);
+  https.get(
+    'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com',
+    (res) => {
       let data = '';
-      res.on('data', (chunk) => data += chunk);
+      res.on('data', c => data += c);
       res.on('end', () => {
         try {
-          const keys = JSON.parse(data);
-          publicKeysCache = keys;
-          // Cache for 6 hours
+          publicKeysCache = JSON.parse(data);
           cacheExpiration = Date.now() + 6 * 60 * 60 * 1000;
-          resolve(keys);
-        } catch (e) {
-          reject(e);
-        }
+          resolve(publicKeysCache);
+        } catch (e) { reject(e); }
       });
-    }).on('error', reject);
-  });
-};
+    }
+  ).on('error', reject);
+});
 
 const verifyFirebaseToken = async (idToken) => {
   if (!idToken) throw new Error('No token provided');
-  
   const parts = idToken.split('.');
   if (parts.length !== 3) throw new Error('Invalid JWT format');
-  
-  const [headerB64, payloadB64, signatureB64] = parts;
-  
-  const header = JSON.parse(Buffer.from(headerB64, 'base64').toString());
-  const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString());
-  
-  const kid = header.kid;
-  if (!kid) throw new Error('Missing key ID in JWT header');
-  
-  const publicKeys = await fetchGooglePublicKeys();
-  const cert = publicKeys[kid];
-  if (!cert) throw new Error('Public key not found for kid');
-  
-  // Verify signature using Crypto
-  const verify = crypto.createVerify('RSA-SHA256');
-  verify.update(`${headerB64}.${payloadB64}`);
-  
-  const isValid = verify.verify(cert, signatureB64, 'base64');
-  if (!isValid) throw new Error('Invalid token signature');
-  
-  // Verify expiration
+  const [hB64, pB64, sigB64] = parts;
+  const header  = JSON.parse(Buffer.from(hB64,  'base64').toString());
+  const payload = JSON.parse(Buffer.from(pB64, 'base64').toString());
+  const keys = await fetchGooglePublicKeys();
+  const cert = keys[header.kid];
+  if (!cert) throw new Error('Public key not found');
+  const v = crypto.createVerify('RSA-SHA256');
+  v.update(`${hB64}.${pB64}`);
+  if (!v.verify(cert, sigB64, 'base64')) throw new Error('Invalid token signature');
   const now = Math.floor(Date.now() / 1000);
-  if (payload.exp < now) throw new Error('Token has expired');
-  
-  // Verify audience and issuer
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  if (payload.aud !== projectId) throw new Error('Audience mismatch');
-  if (payload.iss !== `https://securetoken.google.com/${projectId}`) throw new Error('Issuer mismatch');
-  
-  // Map standard Firebase JWT claims to uid
+  if (payload.exp < now) throw new Error('Token expired');
+  const pid = process.env.FIREBASE_PROJECT_ID;
+  if (payload.aud !== pid) throw new Error('Audience mismatch');
+  if (payload.iss !== `https://securetoken.google.com/${pid}`) throw new Error('Issuer mismatch');
   payload.uid = payload.sub || payload.user_id;
-  
   return payload;
 };
 
-// Authentication Middleware
 const authenticateToken = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized: Missing Authorization Header' });
-  }
-
-  const token = authHeader.split(' ')[1];
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith('Bearer '))
+    return res.status(401).json({ error: 'Missing Authorization header' });
   try {
-    const user = await verifyFirebaseToken(token);
-    req.user = user;
+    req.user = await verifyFirebaseToken(auth.split(' ')[1]);
     next();
   } catch (err) {
-    console.error('Authentication verification failed:', err.message);
-    return res.status(401).json({ error: 'Unauthorized: Invalid credentials', details: err.message });
+    return res.status(401).json({ error: 'Unauthorized', details: err.message });
   }
 };
 
-// Create API router
+// ─── API Router ────────────────────────────────────────────────────────────────
 const apiRouter = express.Router();
 
-// Health check route
-apiRouter.get('/', (req, res) => {
-  res.send('Backend is running securely 🚀');
-});
+apiRouter.get('/', (req, res) => res.json({
+  status: 'ok',
+  message: 'Nebula Backend 🚀',
+  version: '3.0.0 (meta-tx relay)',
+  contract: process.env.NEBULA_CONTRACT_ADDRESS
+}));
 
-// ==========================================================================
-// SEC-01: SECURE UPLOAD RELAY (PINATA SECRETS HELD ENTIRELY ON BACKEND SERVER)
-// ==========================================================================
-apiRouter.post('/upload', authenticateToken, async (req, res) => {
-  const { fileName, ciphertext, fileType, fileSize } = req.body;
-
-  if (!fileName || !ciphertext || !fileType || !fileSize) {
-    return res.status(400).json({ error: 'Missing parameters. fileName, ciphertext, fileType, and fileSize are required.' });
-  }
-
-  let fileCID = null;
+// =============================================================================
+// STEP 1 — Frontend requests a message for the user to sign (free, no gas)
+// Returns: the nonce + deadline the user must sign
+// =============================================================================
+apiRouter.post('/prepare-upload', authenticateToken, async (req, res) => {
+  const { userAddress, fileName, fileCID } = req.body;
+  if (!userAddress || !fileName || !fileCID)
+    return res.status(400).json({ error: 'userAddress, fileName, fileCID required' });
 
   try {
-    console.log(`📥 Secure upload request from ${req.user.email} (UID: ${req.user.uid})`);
-    
-    // Step 1: Upload encrypted ciphertext string to Pinata via Buffer
-    const buffer = Buffer.from(ciphertext, 'utf-8');
-    const form = new FormData();
-    form.append('file', buffer, {
-      filename: `${fileName}.aes`,
-      contentType: 'text/plain'
-    });
+    const nonce    = (await nebulaContract.nonces(userAddress)).toNumber();
+    const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour validity
 
-    const metadata = JSON.stringify({
-      name: fileName,
-      keyvalues: {
-        userId: req.user.uid,
-        name: fileName,
-        type: fileType,
-        timestamp: `${Date.now()}`
-      }
+    // This is the exact message the frontend must sign with personal_sign
+    const contractAddress = process.env.NEBULA_CONTRACT_ADDRESS;
+    const msgHash = ethers.utils.solidityKeccak256(
+      ['string', 'string', 'address', 'uint256', 'uint256', 'address'],
+      [fileName, fileCID, userAddress, nonce, deadline, contractAddress]
+    );
+
+    res.json({ nonce, deadline, msgHash, contractAddress });
+  } catch (err) {
+    console.error('prepare-upload failed:', err.message);
+    res.status(500).json({ error: 'Failed to prepare upload', details: err.message });
+  }
+});
+
+// =============================================================================
+// RELAY-UPLOAD — Receive user signature, relay uploadFileMeta() (backend pays gas)
+// IPFS upload already done by /upload. This just submits the on-chain tx.
+// =============================================================================
+apiRouter.post('/relay-upload', authenticateToken, async (req, res) => {
+  const { fileName, fileCID, userAddress, signature, nonce, deadline } = req.body;
+
+  if (!fileName || !fileCID || !userAddress || !signature || nonce === undefined || !deadline)
+    return res.status(400).json({ error: 'Missing required fields for relay' });
+
+  try {
+    console.log(`⛓️  Relaying meta-tx for ${userAddress} — file: ${fileName}`);
+
+    const tx = await nebulaContract.uploadFileMeta(
+      fileName, fileCID, userAddress, nonce, deadline, signature,
+      { gasLimit: 350000 }
+    );
+    console.log(`📤 Tx sent: ${tx.hash}`);
+    const receipt = await tx.wait();
+    console.log(`✅ Confirmed in block ${receipt.blockNumber}`);
+
+    res.json({
+      success:     true,
+      txHash:      tx.hash,
+      blockNumber: receipt.blockNumber,
+      fileCID,
+      uploader:    userAddress
     });
-    form.append('pinataMetadata', metadata);
+  } catch (err) {
+    console.error('Relay failed:', err.message);
+    res.status(500).json({ error: 'Blockchain relay failed', details: err.reason || err.message });
+  }
+});
+
+// =============================================================================
+// UPLOAD — Encrypt → IPFS → prepare meta-tx → relay on-chain (backend pays gas)
+// =============================================================================
+apiRouter.post('/upload', authenticateToken, async (req, res) => {
+  const { fileName, ciphertext, fileType, fileSize, userAddress, signature, nonce, deadline } = req.body;
+
+  if (!fileName || !ciphertext || !fileType || !fileSize)
+    return res.status(400).json({ error: 'Missing required fields' });
+
+  try {
+    console.log(`📥 Upload — ${req.user.email} | wallet: ${userAddress || 'not provided'}`);
+
+    // ── 1. Pin encrypted file to IPFS via Pinata ─────────────────────────────
+    const buffer = Buffer.from(ciphertext, 'utf-8');
+    const form   = new FormData();
+    form.append('file', buffer, { filename: `${fileName}.aes`, contentType: 'text/plain' });
+    form.append('pinataMetadata', JSON.stringify({
+      name: fileName,
+      keyvalues: { userId: req.user.uid, name: fileName, type: fileType, timestamp: `${Date.now()}` }
+    }));
     form.append('pinataOptions', JSON.stringify({ cidVersion: 1 }));
 
-    console.log('🛰️ Relaying file payload to Pinata...');
-    const pinataRes = await axios.post('https://api.pinata.cloud/pinning/pinFileToIPFS', form, {
-      headers: {
-        ...form.getHeaders(),
-        pinata_api_key: process.env.PINATA_API_KEY,
-        pinata_secret_api_key: process.env.PINATA_SECRET_API_KEY
-      },
-      maxBodyLength: Infinity
-    });
+    console.log('🛰️ Pinning to IPFS…');
+    const pinataRes = await axios.post(
+      'https://api.pinata.cloud/pinning/pinFileToIPFS', form,
+      {
+        headers: { ...form.getHeaders(), pinata_api_key: process.env.PINATA_API_KEY, pinata_secret_api_key: process.env.PINATA_SECRET_API_KEY },
+        maxBodyLength: Infinity
+      }
+    );
+    const fileCID = pinataRes.data.IpfsHash;
+    console.log(`✅ IPFS CID: ${fileCID}`);
 
-    fileCID = pinataRes.data.IpfsHash;
-    console.log(`✅ File pinned to IPFS. CID: ${fileCID}`);
+    // ── 2. Relay blockchain tx if wallet + signature provided ─────────────────
+    let txHash = null;
+    let blockNumber = null;
 
-    // Step 2: Write Transaction proof to Solidity Contract on Sepolia
-    console.log('⛓️ Committing block event on blockchain ledger...');
-    const gasEstimate = await contract.estimateGas.uploadFile(fileName, fileCID);
-    const tx = await contract.uploadFile(fileName, fileCID, {
-      gasLimit: gasEstimate.mul(120).div(100) // 20% buffer
-    });
+    if (userAddress && signature && nonce !== undefined && deadline) {
+      console.log(`⛓️  Relaying meta-tx for wallet ${userAddress}…`);
+      const tx = await nebulaContract.uploadFileMeta(
+        fileName, fileCID, userAddress, nonce, deadline, signature,
+        { gasLimit: 300000 }
+      );
+      console.log(`✅ Tx sent: ${tx.hash}`);
+      const receipt = await tx.wait();
+      txHash      = tx.hash;
+      blockNumber = receipt.blockNumber;
+      console.log(`🎉 Confirmed in block ${blockNumber}`);
+    } else {
+      console.log('ℹ️  No wallet signature provided — IPFS only, no on-chain record.');
+    }
 
-    console.log(`✅ Ledger transaction sent. Hash: ${tx.hash}`);
-    const receipt = await tx.wait();
-    console.log('🎉 Block transaction confirmed!');
-
-    res.json({
-      success: true,
-      txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
-      fileName,
-      fileCID,
-      fileSize,
-      gasUsed: receipt.gasUsed.toString(),
-      from: tx.from,
-      to: tx.to
-    });
+    res.json({ success: true, fileCID, txHash, blockNumber, fileName, fileSize });
 
   } catch (err) {
-    console.error('🔥 Upload execution failed:', err.message);
-    
-    // Attempt rollback of pinned file on Pinata if transaction fails
-    if (fileCID) {
+    console.error('🔥 Upload failed:', err.message);
+    res.status(500).json({ error: 'Upload failed', details: err.message });
+  }
+});
+
+// =============================================================================
+// DELETE — unpin from IPFS + relay on-chain soft-delete (backend pays gas)
+// =============================================================================
+apiRouter.post('/delete', authenticateToken, async (req, res) => {
+  const { cid, fileId, userAddress, signature, nonce, deadline } = req.body;
+  if (!cid) return res.status(400).json({ error: 'CID required' });
+
+  try {
+    console.log(`🗑️  Unpin CID: ${cid} — ${req.user.email}`);
+
+    // Unpin from Pinata
+    await axios.delete(`https://api.pinata.cloud/pinning/unpin/${cid}`, {
+      headers: { pinata_api_key: process.env.PINATA_API_KEY, pinata_secret_api_key: process.env.PINATA_SECRET_API_KEY }
+    });
+    console.log(`✅ Unpinned: ${cid}`);
+
+    // Relay on-chain soft-delete if signature provided
+    if (fileId && userAddress && signature && nonce !== undefined && deadline) {
       try {
-        console.log(`🔄 Rolling back Pinata pin for CID: ${fileCID}`);
-        await axios.delete(`https://api.pinata.cloud/pinning/unpin/${fileCID}`, {
-          headers: {
-            pinata_api_key: process.env.PINATA_API_KEY,
-            pinata_secret_api_key: process.env.PINATA_SECRET_API_KEY
-          }
-        });
-      } catch (rollbackErr) {
-        console.error('Rollback unpin failed:', rollbackErr.message);
+        const tx = await nebulaContract.deleteFileMeta(
+          fileId, userAddress, nonce, deadline, signature,
+          { gasLimit: 150000 }
+        );
+        await tx.wait();
+        console.log(`✅ On-chain delete: ${tx.hash}`);
+      } catch (chainErr) {
+        console.warn('On-chain delete skipped:', chainErr.message);
       }
     }
 
-    res.status(500).json({
-      error: 'Upload transaction failed',
-      details: err.message,
-      reason: err.reason || null
-    });
-  }
-});
-
-// ==========================================================================
-// SEC-01: SECURE USER FILES FETCH (FILTERED BY UID SERVER-SIDE)
-// ==========================================================================
-apiRouter.get('/user-files', authenticateToken, async (req, res) => {
-  try {
-    console.log(`🔍 Fetching file list for user ${req.user.email} (UID: ${req.user.uid})`);
-    
-    const pinataRes = await axios.get('https://api.pinata.cloud/data/pinList', {
-      headers: {
-        pinata_api_key: process.env.PINATA_API_KEY,
-        pinata_secret_api_key: process.env.PINATA_SECRET_API_KEY
-      },
-      params: {
-        status: 'pinned',
-        pageLimit: 100,
-        'metadata[keyvalues]': JSON.stringify({
-          userId: { value: req.user.uid, op: 'eq' }
-        })
-      }
-    });
-
-    res.json({
-      success: true,
-      rows: pinataRes.data.rows
-    });
-  } catch (err) {
-    console.error('Failed to query user files:', err.message);
-    res.status(500).json({ error: 'Failed to retrieve storage lists', details: err.message });
-  }
-});
-
-// ==========================================================================
-// SEC-01: SECURE FILE DELETION (UNPIN FROM BACKEND)
-// ==========================================================================
-apiRouter.post('/delete', authenticateToken, async (req, res) => {
-  const { cid } = req.body;
-
-  if (!cid) {
-    return res.status(400).json({ error: 'CID is required' });
-  }
-
-  try {
-    console.log(`🗑️ Processing delete request from ${req.user.email} for CID: ${cid}`);
-
-    // Verify ownership or proceed with unpinning
-    await axios.delete(`https://api.pinata.cloud/pinning/unpin/${cid}`, {
-      headers: {
-        pinata_api_key: process.env.PINATA_API_KEY,
-        pinata_secret_api_key: process.env.PINATA_SECRET_API_KEY
-      }
-    });
-
-    console.log(`✅ Unpinned CID: ${cid} from Pinata`);
-
-    res.json({
-      success: true,
-      message: 'Resource successfully unpinned from decentralized network',
-      cid
-    });
+    res.json({ success: true, message: 'File removed', cid });
   } catch (err) {
     console.error('Delete failed:', err.message);
-    res.status(500).json({
-      error: 'Delete failed',
-      details: err.message
-    });
+    res.status(500).json({ error: 'Delete failed', details: err.message });
   }
 });
 
-// Get all files from Blockchain (General Ledger)
-apiRouter.get('/files', async (req, res) => {
+// =============================================================================
+// USER FILES — fetch from Pinata (filtered by userId)
+// =============================================================================
+apiRouter.get('/user-files', authenticateToken, async (req, res) => {
   try {
-    const fileCount = await contract.fileCount();
-    const filesList = [];
-    for (let i = 0; i < fileCount; i++) {
-      try {
-        const file = await contract.getFile(i);
-        filesList.push({
-          id: i,
-          name: file.name || file[0],
-          ipfsHash: file.ipfsHash || file[1],
-        });
-      } catch (fileError) {
-        console.log(`Error getting file ${i}:`, fileError.message);
+    const pinataRes = await axios.get('https://api.pinata.cloud/data/pinList', {
+      headers: { pinata_api_key: process.env.PINATA_API_KEY, pinata_secret_api_key: process.env.PINATA_SECRET_API_KEY },
+      params: {
+        status: 'pinned', pageLimit: 100,
+        'metadata[keyvalues]': JSON.stringify({ userId: { value: req.user.uid, op: 'eq' } })
       }
-    }
-    res.json({ success: true, files: filesList, totalCount: fileCount.toString() });
+    });
+    res.json({ success: true, rows: pinataRes.data.rows });
   } catch (err) {
-    console.error('Error getting files:', err.message);
-    res.status(500).json({ error: 'Failed to get ledger files', details: err.message });
+    console.error('Fetch files failed:', err.message);
+    res.status(500).json({ error: 'Failed to retrieve files', details: err.message });
   }
 });
 
-// Mount API router
+// Mount router
 app.use('/api', apiRouter);
 
-// Serve Frontend Build statically
+// ─── Serve Frontend build ──────────────────────────────────────────────────────
 const frontendPath = path.join(__dirname, '../Frontend/dist');
-const fs = require('fs');
-
 if (fs.existsSync(frontendPath)) {
   console.log('✅ Frontend build found at:', frontendPath);
   app.use(express.static(frontendPath));
-
   app.use((req, res, next) => {
-    if (req.path.startsWith('/api/')) {
-      return res.status(404).json({ error: 'API endpoint not found' });
-    }
+    if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found' });
     res.sendFile(path.join(frontendPath, 'index.html'));
   });
 } else {
-  console.log('⚠️ Frontend build not found. Running in API-only mode.');
+  console.log('⚠️  No frontend build — API-only mode.');
 }
 
-// Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Uncaught server error:', err);
+  console.error('Server error:', err);
   res.status(500).json({ error: 'Internal Server Error', details: err.message });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server listening on http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Nebula Backend on http://localhost:${PORT}`));

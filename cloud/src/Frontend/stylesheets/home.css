@@ -325,6 +325,106 @@ html, body {
   color: var(--error);
 }
 
+/* Wallet connect button in sidebar */
+.wallet-connect-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, rgba(249, 158, 11, 0.15), rgba(249, 115, 22, 0.1));
+  border: 1px solid rgba(249, 158, 11, 0.3);
+  border-radius: 12px;
+  color: var(--warning);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.wallet-connect-btn:hover {
+  background: linear-gradient(135deg, rgba(249, 158, 11, 0.25), rgba(249, 115, 22, 0.18));
+  border-color: var(--warning);
+  box-shadow: 0 0 14px rgba(249, 158, 11, 0.2);
+}
+
+.wallet-connect-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Connected wallet pill in sidebar */
+.wallet-connected-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  margin-bottom: 1rem;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--success);
+  font-family: var(--font-mono);
+}
+
+.wallet-dot-active {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+  flex-shrink: 0;
+}
+
+.wallet-disconnect-btn {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--text-sub);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 2px;
+  transition: color 0.2s;
+}
+
+.wallet-disconnect-btn:hover {
+  color: var(--error);
+}
+
+/* Inline "Connect Wallet" warning button in header */
+.wallet-connect-btn-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 1rem;
+  background: rgba(249, 158, 11, 0.1);
+  border: 1px solid rgba(249, 158, 11, 0.35);
+  border-radius: 12px;
+  color: var(--warning);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.wallet-connect-btn-inline:hover {
+  background: rgba(249, 158, 11, 0.2);
+  border-color: var(--warning);
+}
+
+.wallet-connect-btn-inline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ==========================================================================
    MAIN CONTENT AREA
    ========================================================================== */
@@ -397,10 +497,10 @@ html, body {
 }
 
 .upload-action-btn {
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  background: #1E90FF;
   border: none;
   border-radius: 14px;
-  color: #fff;
+  color: #000000;
   font-family: var(--font-sans);
   font-weight: 700;
   font-size: 0.95rem;
@@ -409,13 +509,12 @@ html, body {
   align-items: center;
   gap: 0.65rem;
   cursor: pointer;
-  box-shadow: 0 4px 15px var(--primary-glow);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .upload-action-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(79, 172, 254, 0.6);
+  box-shadow: 0 6px 20px rgba(0, 136, 255, 0.6);
 }
 
 .upload-action-btn:active {

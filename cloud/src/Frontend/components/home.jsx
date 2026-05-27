@@ -1,7 +1,7 @@
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { db, auth } from "./config.js";
+import { db, auth, contractABI, NEBULA_CONTRACT_ADDRESS, SEPOLIA_CHAIN_ID } from "./config.js";
 import { collection, addDoc, getDocs, query, where, doc, getDoc, setDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import axios from "axios";
@@ -14,9 +14,7 @@ import {
   Search, 
   UploadCloud, 
   LogOut, 
-  Database, 
   Network, 
-  Key, 
   Check, 
   Copy, 
   Trash2, 
@@ -26,7 +24,9 @@ import {
   File as FileIcon, 
   ExternalLink,
   Loader2,
-  HardDrive
+  HardDrive,
+  Wallet,
+  AlertCircle
 } from "lucide-react";
 
 const Home = () => {
@@ -39,6 +39,10 @@ const Home = () => {
   // Custom user-specific encryption key
   const [userKey, setUserKey] = useState(null);
   
+  // Wallet (MetaMask) state
+  const [walletAddress,   setWalletAddress]   = useState(null);
+  const [walletConnecting, setWalletConnecting] = useState(false);
+
   // Custom Controls State
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -74,11 +78,88 @@ const Home = () => {
     }
   };
 
-  // Auto-detect backend URL based on where frontend is running
+  // Auto-detect backend URL
   const backendBaseURL =
     window.location.hostname === "localhost"
       ? "http://localhost:3001"
       : "https://decentralized-cloud-storage.onrender.com";
+
+  // ─── MetaMask Wallet Connection ─────────────────────────────────────────────
+  const connectWallet = async () => {
+    if (!window.ethereum) {
+      alert("MetaMask is not installed. Please install it from metamask.io");
+      return null;
+    }
+    try {
+      setWalletConnecting(true);
+
+      // Request accounts
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      const address  = accounts[0];
+
+      // Ensure user is on Sepolia (chain 0xaa36a7 = 11155111)
+      const chainId = await window.ethereum.request({ method: "eth_chainId" });
+      if (chainId !== SEPOLIA_CHAIN_ID) {
+        try {
+          await window.ethereum.request({
+            method:  "wallet_switchEthereumChain",
+            params:  [{ chainId: SEPOLIA_CHAIN_ID }],
+          });
+        } catch (switchErr) {
+          // Chain not added yet — add it
+          if (switchErr.code === 4902) {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [{
+                chainId:         SEPOLIA_CHAIN_ID,
+                chainName:       "Sepolia Testnet",
+                nativeCurrency:  { name: "ETH", symbol: "ETH", decimals: 18 },
+                rpcUrls:         ["https://rpc.sepolia.org"],
+                blockExplorerUrls: ["https://sepolia.etherscan.io"],
+              }],
+            });
+          } else {
+            throw switchErr;
+          }
+        }
+      }
+
+      setWalletAddress(address);
+      setWalletConnecting(false);
+      return address;
+    } catch (err) {
+      console.error("Wallet connect failed:", err);
+      setWalletConnecting(false);
+      return null;
+    }
+  };
+
+  // Re-sync wallet on page load if already connected
+  useEffect(() => {
+    if (window.ethereum) {
+      window.ethereum.request({ method: "eth_accounts" }).then((accounts) => {
+        if (accounts.length > 0) setWalletAddress(accounts[0]);
+      });
+      window.ethereum.on("accountsChanged", (accounts) => {
+        setWalletAddress(accounts[0] || null);
+      });
+    }
+  }, []);
+
+  // Helper: sign a message hash with MetaMask personal_sign (FREE — no gas)
+  const signMessage = async (msgHash) => {
+    if (!window.ethereum) throw new Error("MetaMask not available");
+    // personal_sign expects the data as hex string
+    const accounts = await window.ethereum.request({ method: "eth_accounts" });
+    const account  = accounts[0];
+    if (!account) throw new Error("No wallet connected");
+    // eth_sign on the raw hash bytes
+    const signature = await window.ethereum.request({
+      method: "personal_sign",
+      params: [msgHash, account],
+    });
+    return { signature, account };
+  };
 
   // Auth State Listener
   useEffect(() => {
@@ -252,73 +333,92 @@ const Home = () => {
     setLoading(true);
 
     try {
-      // Step 1: Encrypting
-      setUploadStatus({
-        isOpen: true,
-        stage: "encrypting",
-        fileName: file.name,
-      });
-
-      await new Promise((resolve) => setTimeout(resolve, 300));
-
-      const originalBuffer = await file.arrayBuffer();
-      // SEC-02: Encrypting using user-specific AES key
+      // ── Step 1: AES-256 Encrypt ────────────────────────────────────────────
+      setUploadStatus({ isOpen: true, stage: "encrypting", fileName: file.name });
+      await new Promise((r) => setTimeout(r, 300));
+      const originalBuffer  = await file.arrayBuffer();
       const encryptedString = encryptFile(originalBuffer, userKey);
 
-      // Step 2: Uploading to IPFS (Delegated securely to Backend Proxy)
-      setUploadStatus((prev) => ({
-        ...prev,
-        stage: "uploading",
-      }));
-
-      // SEC-03: Retrieve idToken to verify caller authenticity
+      // ── Step 2: Upload encrypted blob to IPFS (backend handles Pinata) ─────
+      setUploadStatus((p) => ({ ...p, stage: "uploading" }));
       const idToken = await user.getIdToken(true);
 
-      const uploadResponse = await axios.post(
-        `${backendBaseURL}/api/upload`,
-        {
-          fileName: file.name,
-          ciphertext: encryptedString,
-          fileType: file.type || "unknown",
-          fileSize: file.size,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${idToken}`,
-          },
+      // ── Step 3: Sign message for blockchain (FREE — personal_sign, no gas) ─
+      setUploadStatus((p) => ({ ...p, stage: "blockchain" }));
+
+      let signatureData = {};
+
+      if (walletAddress) {
+        try {
+          // Ask backend for nonce + deadline first (we need CID from IPFS first)
+          // So we upload to IPFS first, then sign with the returned CID
+          // Upload without signature to get CID
+          const ipfsRes = await axios.post(
+            `${backendBaseURL}/api/upload`,
+            { fileName: file.name, ciphertext: encryptedString, fileType: file.type || "unknown", fileSize: file.size },
+            { headers: { Authorization: `Bearer ${idToken}` } }
+          );
+          const { fileCID } = ipfsRes.data;
+
+          // Get nonce + deadline from backend
+          const prepRes = await axios.post(
+            `${backendBaseURL}/api/prepare-upload`,
+            { userAddress: walletAddress, fileName: file.name, fileCID },
+            { headers: { Authorization: `Bearer ${idToken}` } }
+          );
+          const { nonce, deadline, msgHash } = prepRes.data;
+
+          // Sign the hash with MetaMask — this is FREE, no gas popup!
+          const { signature } = await signMessage(msgHash);
+
+          // Send signature to backend — backend pays gas and relays the tx
+          const finalRes = await axios.post(
+            `${backendBaseURL}/api/relay-upload`,
+            { fileName: file.name, fileCID, userAddress: walletAddress, signature, nonce, deadline },
+            { headers: { Authorization: `Bearer ${idToken}` } }
+          );
+
+          signatureData = {
+            fileCID,
+            transactionHash: finalRes.data.txHash,
+            blockNumber:     finalRes.data.blockNumber,
+          };
+        } catch (signErr) {
+          // Wallet sign cancelled or failed — still save to IPFS-only
+          if (signErr.code === 4001) {
+            console.warn("User cancelled signature — saving IPFS-only");
+          } else {
+            console.warn("Signature/relay failed:", signErr.message);
+          }
+          // Fall through and do IPFS-only upload below
         }
-      );
+      }
 
-      const { fileCID, txHash } = uploadResponse.data;
+      // If no wallet or signature flow not used, do plain IPFS upload
+      if (!signatureData.fileCID) {
+        const ipfsRes = await axios.post(
+          `${backendBaseURL}/api/upload`,
+          { fileName: file.name, ciphertext: encryptedString, fileType: file.type || "unknown", fileSize: file.size },
+          { headers: { Authorization: `Bearer ${idToken}` } }
+        );
+        signatureData.fileCID = ipfsRes.data.fileCID;
+      }
 
-      // Step 3: Blockchain
-      setUploadStatus((prev) => ({
-        ...prev,
-        stage: "blockchain",
-      }));
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Add local reference to Firestore
+      // ── Step 4: Store receipt in Firestore ────────────────────────────────
       await addDoc(collection(db, "files"), {
-        userId: user.uid,
-        fileCID,
-        transactionHash: txHash,
-        type: file.type || "unknown",
-        timestamp: new Date(),
+        userId:          user.uid,
+        walletAddress:   walletAddress || null,
+        fileCID:         signatureData.fileCID,
+        transactionHash: signatureData.transactionHash || null,
+        blockNumber:     signatureData.blockNumber     || null,
+        type:            file.type || "unknown",
+        timestamp:       new Date(),
       });
 
-      // Step 4: Success
-      setUploadStatus((prev) => ({
-        ...prev,
-        stage: "success",
-      }));
-
+      // ── Step 5: Success ───────────────────────────────────────────────────
+      setUploadStatus((p) => ({ ...p, stage: "success" }));
       setTimeout(() => {
-        setUploadStatus({
-          isOpen: false,
-          stage: "encrypting",
-          fileName: "",
-        });
+        setUploadStatus({ isOpen: false, stage: "encrypting", fileName: "" });
         setLoading(false);
       }, 1200);
 
@@ -326,37 +426,41 @@ const Home = () => {
     } catch (error) {
       console.error("Upload failed:", error);
       alert("Upload failed: " + (error.response?.data?.details || error.message));
-      setUploadStatus({
-        isOpen: false,
-        stage: "encrypting",
-        fileName: "",
-      });
+      setUploadStatus({ isOpen: false, stage: "encrypting", fileName: "" });
       setLoading(false);
     }
   };
 
-  const handleDelete = async (fileCID) => {
-    if (!window.confirm("Are you sure you want to delete this file from Nebula?")) {
-      return;
-    }
+  const handleDelete = async (fileCID, onChainFileId) => {
+    if (!window.confirm("Delete this file from IPFS and the blockchain record?")) return;
+
     try {
-      // SEC-03: Authenticate deletion request
       const idToken = await user.getIdToken(true);
 
+      // 1. Unpin from Pinata IPFS (backend)
       await axios.post(
         `${backendBaseURL}/api/delete`,
         { cid: fileCID },
-        {
-          headers: {
-            Authorization: `Bearer ${idToken}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${idToken}` } }
       );
+
+      // 2. If we have the on-chain fileId, soft-delete via user's wallet
+      if (onChainFileId && walletAddress) {
+        try {
+          const contract = await getSignedContract();
+          const tx = await contract.deleteFile(onChainFileId);
+          await tx.wait();
+          console.log("✅ On-chain soft-delete confirmed:", tx.hash);
+        } catch (chainErr) {
+          // User rejected or not owner — still remove from UI
+          console.warn("On-chain delete skipped:", chainErr.message);
+        }
+      }
 
       setFiles((prev) => prev.filter((f) => f.fileCID !== fileCID));
     } catch (error) {
       console.error("Delete failed:", error);
-      alert("Failed to delete.");
+      alert("Failed to delete: " + error.message);
     }
   };
 
@@ -719,19 +823,60 @@ const Home = () => {
             </div>
           </div>
           <div className="status-row">
-            <span className="status-label">Storage IPFS</span>
+            <span className="status-label">Storage</span>
             <div className="status-value-badge">
               <span className="status-indicator-dot active"></span>
-              <span>Pinata Node</span>
+              <span>Pinata IPFS</span>
             </div>
           </div>
           <div className="status-row">
-            <span className="status-label">Security</span>
+            <span className="status-label">Wallet</span>
             <div className="status-value-badge">
-              <span>AES-256 (User Key)</span>
+              {walletAddress ? (
+                <>
+                  <span className="status-indicator-dot active"></span>
+                  <span title={walletAddress}>
+                    {walletAddress.slice(0, 6)}…{walletAddress.slice(-4)}
+                  </span>
+                </>
+              ) : (
+                <span style={{ color: "var(--warning)", fontSize: "0.75rem" }}>Not connected</span>
+              )}
+            </div>
+          </div>
+          <div className="status-row">
+            <span className="status-label">Encryption</span>
+            <div className="status-value-badge">
+              <span>AES-256</span>
             </div>
           </div>
         </div>
+
+        {/* Wallet Connect Button */}
+        {!walletAddress ? (
+          <button
+            className="wallet-connect-btn"
+            onClick={connectWallet}
+            disabled={walletConnecting}
+          >
+            <Wallet size={15} />
+            <span>{walletConnecting ? "Connecting…" : "Connect Wallet"}</span>
+          </button>
+        ) : (
+          <div className="wallet-connected-pill">
+            <span className="wallet-dot-active" />
+            <span title={walletAddress}>
+              {walletAddress.slice(0, 6)}…{walletAddress.slice(-4)}
+            </span>
+            <button
+              className="wallet-disconnect-btn"
+              onClick={() => setWalletAddress(null)}
+              title="Disconnect wallet"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         {/* Profile Card Info */}
         <div className="sidebar-profile">
@@ -756,7 +901,7 @@ const Home = () => {
           <div className="search-input-wrapper">
             <input 
               type="text" 
-              placeholder="Search secure database by filename..." 
+              placeholder="Search by filename" 
               className="search-input-field"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -765,13 +910,25 @@ const Home = () => {
           </div>
 
           <div className="header-actions-panel">
+            {/* Wallet connect shortcut in header if not already shown in sidebar */}
+            {!walletAddress && (
+              <button
+                className="wallet-connect-btn-inline"
+                onClick={connectWallet}
+                disabled={walletConnecting}
+                title="Connect MetaMask to sign blockchain transactions"
+              >
+                <AlertCircle size={15} />
+                <span>Connect Wallet</span>
+              </button>
+            )}
             <button 
               className="upload-action-btn"
               onClick={handleFileSelect}
               disabled={loading}
             >
               <UploadCloud size={18} />
-              <span>Secure Upload</span>
+              <span>Upload file</span>
             </button>
           </div>
         </header>
@@ -779,7 +936,6 @@ const Home = () => {
         {/* Welcome Banner */}
         <section className="welcome-hero-banner">
           <div className="welcome-banner-left">
-            <span className="welcome-banner-tag">Decentralized Cloud Space</span>
             <h1 className="welcome-banner-title">
               Secured Web3 <span>Vault</span>
             </h1>
@@ -803,7 +959,7 @@ const Home = () => {
         {/* Active Files Grid */}
         <section>
           <h2 className="files-grid-section-heading">
-            {selectedCategory} Secured Items <span>({filteredFiles.length})</span>
+            {selectedCategory} <span>({filteredFiles.length})</span>
           </h2>
 
           {filteredFiles.length === 0 ? (
@@ -915,7 +1071,7 @@ const Home = () => {
                         className="round-control-action-btn delete-trigger-btn"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDelete(file.fileCID);
+                          handleDelete(file.fileCID, file.onChainFileId);
                         }}
                         title="Delete Secure Node Resource"
                       >

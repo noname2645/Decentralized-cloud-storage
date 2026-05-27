@@ -194,9 +194,6 @@ const features = [
             <h2 className="section-title">
               <span className="section-title-gradient">Nebula</span> Core Technologies
             </h2>
-            <p className="section-description">
-              We've reinvented cloud infrastructure from the ground up with breakthrough innovations.
-            </p>
           </div>
 
           <div className="features-grid">
