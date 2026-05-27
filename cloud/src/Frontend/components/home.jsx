@@ -722,7 +722,7 @@ const Home = () => {
             <button className="close-modal-round-btn" onClick={closePreview}>×</button>
           </div>
 
-          <div className="media-modal-body">
+          <div className={`media-modal-body ${preview.type === "application/pdf" ? "pdf-preview" : ""}`}>
             {getPreviewContent()}
           </div>
 

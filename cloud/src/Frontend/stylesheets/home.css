@@ -1279,6 +1279,12 @@ html, body {
   overflow: hidden;
 }
 
+.media-modal-body.pdf-preview {
+  height: 75vh;
+  max-height: 75vh;
+  align-items: stretch;
+}
+
 .media-modal-body img,
 .media-modal-body video {
   max-width: 100%;

@@ -22,7 +22,7 @@ export const PDFThumbnail = ({ pdfBytes, width = 300 }) => {
 
     const render = async () => {
       try {
-        const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
+        const loadingTask = pdfjsLib.getDocument({ data: pdfBytes.slice(0), postMessageTransfers: false });
         const pdf = await loadingTask.promise;
         if (cancelled) return;
 
@@ -88,7 +88,7 @@ export const PDFFullViewer = ({ pdfBytes }) => {
         setLoading(true);
         setError(null);
 
-        const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
+        const loadingTask = pdfjsLib.getDocument({ data: pdfBytes.slice(0), postMessageTransfers: false });
         const pdf = await loadingTask.promise;
         if (cancelled) return;
 
@@ -207,6 +207,7 @@ const styles = {
   },
   scrollContainer: {
     overflowY: "auto",
+    width: "100%",
     height: "100%",
     display: "flex",
     flexDirection: "column",
@@ -222,9 +223,12 @@ const styles = {
     borderRadius: "8px",
     overflow: "hidden",
     boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+    flexShrink: 0,
   },
   pageImage: {
     width: "100%",
+    height: "auto",
+    maxHeight: "none",
     display: "block",
     userSelect: "none",
   },
