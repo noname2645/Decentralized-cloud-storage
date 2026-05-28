@@ -1230,13 +1230,6 @@ const Home = () => {
             </div>
           </div>
           <div className="status-row">
-            <span className="status-label">Storage</span>
-            <div className="status-value-badge">
-              <span className="status-indicator-dot active"></span>
-              <span>Pinata IPFS</span>
-            </div>
-          </div>
-          <div className="status-row">
             <span className="status-label">Wallet</span>
             <div className="status-value-badge">
               {walletAddress ? (

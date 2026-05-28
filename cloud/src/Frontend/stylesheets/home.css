@@ -178,7 +178,6 @@ html, body {
   font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
   font-family: var(--font-sans);
 }
 
@@ -254,15 +253,15 @@ html, body {
   align-items: center;
   gap: 0.35rem;
   font-weight: 600;
-  color: var(--text-muted);
+  color: #10b981;
 }
 
-.status-indicator-dot {
+/* .status-indicator-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--text-sub);
-}
+} */
 
 .status-indicator-dot.active {
   background: var(--success);
@@ -366,7 +365,7 @@ html, body {
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--success);
-  font-family: var(--font-mono);
+  font-family: 'Inter', sans-serif;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -377,14 +376,6 @@ html, body {
   box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
 }
 
-.wallet-dot-active {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--success);
-  box-shadow: 0 0 6px var(--success);
-  flex-shrink: 0;
-}
 
 .wallet-connected-pill.wrong-network {
   background: rgba(239, 68, 68, 0.08);
@@ -398,14 +389,6 @@ html, body {
   box-shadow: 0 0 12px rgba(239, 68, 68, 0.15);
 }
 
-.wallet-dot-inactive {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--error);
-  box-shadow: 0 0 6px var(--error);
-  flex-shrink: 0;
-}
 
 /* Wallet Info Modal styling */
 .wallet-info-modal-box {
