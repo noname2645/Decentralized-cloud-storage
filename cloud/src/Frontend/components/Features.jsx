@@ -4,6 +4,7 @@ import folder from "../assets/Images/folder.png"
 import blockchain from "../assets/Images/blockchain.png"
 import nodes from "../assets/Images/nodes.png"
 import encryption from "../assets/Images/encryption.png"
+import Footer from './Footer';
 
 const DecentralizedStorage = () => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -128,6 +129,8 @@ const DecentralizedStorage = () => {
           </div>
         </div>
       </div>
+
+      <Footer variant="light" />
     </div>
   );
 };

@@ -36,12 +36,10 @@ import {
   FileText,
   Image as ImageIcon,
   Video as VideoIcon,
-  File as FileIcon,
   ExternalLink,
   Loader2,
   HardDrive,
   Wallet,
-  AlertCircle,
   Users,
 } from "lucide-react";
 
@@ -52,6 +50,7 @@ import jpegIcon from "../assets/Images/jpeg.png";
 import pngIcon from "../assets/Images/png-file.png";
 import audioIcon from "../assets/Images/audio.png";
 import folderIcon from "../assets/Images/folder.png";
+import Footer from "./Footer";
 
 const Home = () => {
   const [files, setFiles] = useState([]);
@@ -69,11 +68,10 @@ const Home = () => {
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [currentChainId, setCurrentChainId] = useState(null);
 
-  // Custom Controls State
+  // Search & filter state
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [copiedCID, setCopiedCID] = useState(null);
-  const [hoveredIndex, setHoveredIndex] = useState(null);
 
   // Lazy previews & DOM cards tracking
   const [previewCache, setPreviewCache] = useState({});
@@ -258,25 +256,25 @@ const Home = () => {
     return { signature, account };
   };
 
-  // Auth State Listener
+  // Fires whenever login/logout happens.
+  // On login: loads (or creates) the user's AES encryption key from Firestore,
+  // then fetches the file list from the backend.
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
         setShowWelcomeModal(true);
         try {
-          // SEC-02: Retrieve or generate unique AES key for this user in Firestore
-          let keyVal = null;
+          // Each user has a unique AES-256 key stored in Firestore.
+          // If they don't have one yet, generate and save a new one.
           const userDocRef = doc(db, "users", currentUser.uid);
           const userDocSnap = await getDoc(userDocRef);
+          let keyVal;
 
           if (userDocSnap.exists() && userDocSnap.data().aesKey) {
             keyVal = userDocSnap.data().aesKey;
           } else {
-            // Generate secure random 256-bit user key
-            keyVal = CryptoJS.lib.WordArray.random(32).toString(
-              CryptoJS.enc.Hex,
-            );
+            keyVal = CryptoJS.lib.WordArray.random(32).toString(CryptoJS.enc.Hex);
             await setDoc(userDocRef, { aesKey: keyVal }, { merge: true });
           }
 
@@ -292,17 +290,20 @@ const Home = () => {
     return () => unsubscribe();
   }, []);
 
+  // Fetches the user's file list.
+  // 1. Gets blockchain transaction hashes from Firestore.
+  // 2. Gets the IPFS file list from our backend (which calls Pinata).
+  // 3. Merges both together so each file has its tx hash if available.
   const fetchPinnedFilesFromBackend = async (currentUser) => {
     try {
-      // SEC-03: Retrieve Firebase ID Token
+      // Firebase ID token proves the user is logged in — backend verifies it
       const idToken = await currentUser.getIdToken(true);
 
-      // Get files from Firestore to get transaction hashes
+      // Load blockchain tx hashes from Firestore, keyed by IPFS CID
       const filesSnapshot = await getDocs(
         query(collection(db, "files"), where("userId", "==", currentUser.uid)),
       );
       const firestoreFiles = {};
-
       filesSnapshot.forEach((doc) => {
         const data = doc.data();
         firestoreFiles[data.fileCID] = {
@@ -311,83 +312,72 @@ const Home = () => {
         };
       });
 
-      // SEC-01: Call backend proxy to fetch Pinata rows securely
+      // Fetch the pinned IPFS file list from our backend
       const res = await axios.get(`${backendBaseURL}/api/user-files`, {
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-        },
+        headers: { Authorization: `Bearer ${idToken}` },
       });
 
-      // Map rows from backend response
+      // Shape each Pinata row into a clean file object
       const filesList = res.data.rows.map((file) => {
         const fileCID = file.ipfs_pin_hash;
-        const type = file.metadata?.keyvalues?.type || "unknown";
         const firestoreData = firestoreFiles[fileCID] || {};
-
         return {
           fileCID,
-          fileName:
-            file.metadata?.keyvalues?.name ||
-            file.metadata?.name ||
-            file.file_name,
-          type,
+          fileName: file.metadata?.keyvalues?.name || file.metadata?.name || file.file_name,
+          type: file.metadata?.keyvalues?.type || "unknown",
           previewURL: null,
           transactionHash: firestoreData.transactionHash,
           timestamp: firestoreData.timestamp,
         };
       });
 
-      // Sort by timestamp (newest first)
-      filesList.sort(
-        (a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0),
-      );
+      // Show newest files first
+      filesList.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
 
       setFiles(filesList);
-      setPreviewCache({}); // Reset preview cache on refresh
+      setPreviewCache({});
       setInitialLoadComplete(true);
       setShowWelcomeModal(false);
     } catch (err) {
-      console.error("Error fetching files via backend:", err);
+      console.error("Error fetching files:", err);
       setFiles([]);
       setInitialLoadComplete(true);
       setShowWelcomeModal(false);
     }
   };
 
-  // Lazy preview loader — downloads and decrypts a single file on demand
+  // Downloads and decrypts one file for card thumbnail preview.
+  // Only runs for images, videos, and PDFs — other types have no preview.
+  // PDFs are stored as raw bytes (for PDF.js); images/videos become blob URLs.
   const loadPreview = useCallback(
     async (fileCID, type) => {
-      if (
-        !userKey ||
-        !(
-          type?.startsWith("image/") ||
-          type?.startsWith("video/") ||
-          type === "application/pdf"
-        )
-      )
-        return;
+      const isPreviewable =
+        type?.startsWith("image/") ||
+        type?.startsWith("video/") ||
+        type === "application/pdf";
+      if (!userKey || !isPreviewable) return;
+
       try {
         const res = await fetch(`https://gateway.pinata.cloud/ipfs/${fileCID}`);
         const encryptedText = await res.text();
         const decryptedBytes = decryptFile(encryptedText, userKey);
 
         if (type === "application/pdf") {
-          // Store raw Uint8Array bytes — PDFThumbnail renders them via PDF.js (no blob URL needed)
           setPreviewCache((prev) => ({ ...prev, [fileCID]: decryptedBytes }));
         } else {
-          // Images and videos use blob object URLs
           const blob = new Blob([decryptedBytes], { type });
           const url = URL.createObjectURL(blob);
           setPreviewCache((prev) => ({ ...prev, [fileCID]: url }));
         }
       } catch (err) {
-        console.error("Failed to load preview for CID:", fileCID);
+        console.error("Preview load failed for CID:", fileCID);
       }
     },
     [userKey],
   );
 
-  // IntersectionObserver: load previews only when file cards scroll into view
+  // Watches each file card and starts decrypting its preview only when it
+  // scrolls into view. This avoids downloading all files at once (lazy loading).
   useEffect(() => {
     if (!files.length || !userKey) return;
 
@@ -395,22 +385,17 @@ const Home = () => {
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            const cid = entry.target.dataset.cid;
-            const type = entry.target.dataset.type;
-            if (cid && !previewCache[cid]) {
-              loadPreview(cid, type);
-            }
-            observer.unobserve(entry.target);
+            const { cid, type } = entry.target.dataset;
+            if (cid && !previewCache[cid]) loadPreview(cid, type);
+            observer.unobserve(entry.target); // only load once per card
           }
         });
       },
-      { threshold: 0.1, rootMargin: "200px" },
+      { threshold: 0.1, rootMargin: "200px" }, // start 200px before card enters view
     );
 
     Object.entries(fileCardsRef.current).forEach(([cid, el]) => {
-      if (el && !previewCache[cid]) {
-        observer.observe(el);
-      }
+      if (el && !previewCache[cid]) observer.observe(el);
     });
 
     return () => observer.disconnect();
@@ -719,48 +704,7 @@ const Home = () => {
     (f) => getFileCategory(f.type) === "Others",
   ).length;
 
-  // Returns the specific asset icon <img> based on exact mime type, falling
-  // back to a lucide icon for types with no dedicated asset.
-  const getFileIconComponent = (fileType) => {
-    if (fileType === "application/pdf")
-      return (
-        <img src={pdfIcon} alt="PDF" className="fallback-type-icon-img asset-file-icon" />
-      );
-    if (fileType === "image/png")
-      return (
-        <img src={pngIcon} alt="PNG" className="fallback-type-icon-img asset-file-icon" />
-      );
-    if (fileType === "image/jpg")
-      return (
-        <img src={jpgIcon} alt="JPG" className="fallback-type-icon-img asset-file-icon" />
-      );
-    if (fileType === "image/jpeg")
-      return (
-        <img src={jpegIcon} alt="JPEG" className="fallback-type-icon-img asset-file-icon" />
-      );
-    if (fileType?.startsWith("image/"))
-      return (
-        <ImageIcon
-          className="fallback-type-icon-img"
-          style={{ color: "#38bdf8" }}
-        />
-      );
-    if (fileType?.startsWith("audio/"))
-      return (
-        <img src={audioIcon} alt="Audio" className="fallback-type-icon-img asset-file-icon" />
-      );
-    if (fileType?.startsWith("video/"))
-      return (
-        <VideoIcon
-          className="fallback-type-icon-img"
-          style={{ color: "#a855f7" }}
-        />
-      );
-    // Generic fallback
-    return (
-      <img src={folderIcon} alt="File" className="fallback-type-icon-img asset-file-icon" />
-    );
-  };
+
 
   // Returns a human-readable label for the file type pill
   const getFileTypeLabel = (fileType) => {
@@ -1537,6 +1481,9 @@ const Home = () => {
             </div>
           )}
         </section>
+
+        {/* ── Footer ── */}
+        <Footer variant="dark" />
       </main>
 
       {/* Overlay Modals */}

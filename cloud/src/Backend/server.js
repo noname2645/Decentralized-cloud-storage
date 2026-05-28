@@ -10,11 +10,24 @@ const FormData = require('form-data');
 const fs       = require('fs');
 const { ethers } = require('ethers');
 
+// ─── Startup checks ──────────────────────────────────────────────────────────
 console.log("ENV PATH:", path.resolve(__dirname, '../../.env'));
 console.log("Pinata API Key:  ", process.env.PINATA_API_KEY        ? '✅ Configured' : '❌ Missing');
 console.log("Firebase Project:", process.env.FIREBASE_PROJECT_ID   ? '✅ Configured' : '❌ Missing');
 console.log("Blockchain relay:", process.env.PRIVATE_KEY           ? '✅ Relay wallet configured' : '❌ Missing');
 console.log("Contract address:", process.env.NEBULA_CONTRACT_ADDRESS || '❌ Missing');
+
+/*
+ * API ROUTE MAP
+ * ─────────────────────────────────────────────────────────────────────────────
+ * POST /api/upload          → Encrypt file → pin to IPFS via Pinata
+ * POST /api/prepare-upload  → Get nonce + message hash for the user to sign
+ * POST /api/relay-upload    → Submit signed meta-tx to blockchain (backend pays gas)
+ * POST /api/delete          → Unpin from IPFS + optional on-chain soft-delete
+ * GET  /api/user-files      → List all files belonging to the logged-in user
+ * ─────────────────────────────────────────────────────────────────────────────
+ * All routes require a Firebase ID token in the Authorization header.
+ */
 
 // ─── Blockchain relay setup ────────────────────────────────────────────────────
 // Backend wallet only RELAYS transactions — pays gas on behalf of users.
@@ -63,23 +76,24 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// =============================================================================
-// Firebase token verifier (pure crypto — no Admin SDK needed)
-// =============================================================================
+// ─── Firebase token verification (no Admin SDK needed) ──────────────────────
+// Firebase sends users a JWT (JSON Web Token) after login.
+// We verify it here using Google's public keys — no Firebase Admin SDK required.
 let publicKeysCache = null;
 let cacheExpiration = 0;
 
+// Downloads Google's public signing keys (cached for 6 hours to avoid spam).
 const fetchGooglePublicKeys = () => new Promise((resolve, reject) => {
   if (publicKeysCache && Date.now() < cacheExpiration) return resolve(publicKeysCache);
   https.get(
     'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com',
     (res) => {
       let data = '';
-      res.on('data', c => data += c);
+      res.on('data', chunk => data += chunk);
       res.on('end', () => {
         try {
           publicKeysCache = JSON.parse(data);
-          cacheExpiration = Date.now() + 6 * 60 * 60 * 1000;
+          cacheExpiration = Date.now() + 6 * 60 * 60 * 1000; // cache for 6 hours
           resolve(publicKeysCache);
         } catch (e) { reject(e); }
       });
@@ -87,24 +101,37 @@ const fetchGooglePublicKeys = () => new Promise((resolve, reject) => {
   ).on('error', reject);
 });
 
+// Verifies a Firebase ID token and returns its payload (includes uid, email).
 const verifyFirebaseToken = async (idToken) => {
   if (!idToken) throw new Error('No token provided');
+
+  // A JWT has three parts separated by dots: header.payload.signature
   const parts = idToken.split('.');
   if (parts.length !== 3) throw new Error('Invalid JWT format');
-  const [hB64, pB64, sigB64] = parts;
-  const header  = JSON.parse(Buffer.from(hB64,  'base64').toString());
-  const payload = JSON.parse(Buffer.from(pB64, 'base64').toString());
+
+  const [headerB64, payloadB64, signatureB64] = parts;
+  const header  = JSON.parse(Buffer.from(headerB64,  'base64').toString());
+  const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString());
+
+  // Find the matching public key using the key ID in the token header
   const keys = await fetchGooglePublicKeys();
   const cert = keys[header.kid];
   if (!cert) throw new Error('Public key not found');
-  const v = crypto.createVerify('RSA-SHA256');
-  v.update(`${hB64}.${pB64}`);
-  if (!v.verify(cert, sigB64, 'base64')) throw new Error('Invalid token signature');
+
+  // Verify the signature to confirm the token was signed by Google
+  const verifier = crypto.createVerify('RSA-SHA256');
+  verifier.update(`${headerB64}.${payloadB64}`);
+  if (!verifier.verify(cert, signatureB64, 'base64')) throw new Error('Invalid token signature');
+
+  // Check the token hasn't expired
   const now = Math.floor(Date.now() / 1000);
   if (payload.exp < now) throw new Error('Token expired');
+
+  // Check the token was issued for this Firebase project
   const pid = process.env.FIREBASE_PROJECT_ID;
   if (payload.aud !== pid) throw new Error('Audience mismatch');
   if (payload.iss !== `https://securetoken.google.com/${pid}`) throw new Error('Issuer mismatch');
+
   payload.uid = payload.sub || payload.user_id;
   return payload;
 };

@@ -25,6 +25,7 @@ import {
 import { motion } from 'framer-motion';
 import '../stylesheets/LandingPage.css';
 import { Link } from 'react-router-dom';
+import Footer from './Footer';
 
 const BlockchainLandingPage = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -232,31 +233,7 @@ const features = [
       </section>
 
       {/* Footer */}
-      <footer className="footer">
-        <div className="footer-container">
-          <div className="footer-content">
-            <div className="footer-brand">
-              <div className="footer-logo">
-                <Cloud className="w-6 h-6" />
-                <span className="footer-logo-text">Nebula</span>
-              </div>
-            </div>
-            
-            <div className="footer-info">
-              <p className="footer-credit">
-                Made with ❤️ by students of <span className="team-name">Nebula Team</span>
-              </p>
-              <div className="footer-details">
-                <span className="footer-year">© 2025</span>
-                <span className="footer-separator">•</span>
-                <span className="footer-project">Decentralized Cloud Storage</span>
-                <span className="footer-separator">•</span>
-                <span className="footer-version">v1.0.0</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer variant="light" />
     </div>
   );
 };
