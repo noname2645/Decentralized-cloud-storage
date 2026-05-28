@@ -894,10 +894,57 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.04) 0%, rgba(15, 22, 38, 0.6) 100%);
+  background: linear-gradient(135deg, rgba(79, 172, 254, 0.04) 0%, rgba(15, 22, 38, 0.6) 100%);
   gap: 0.75rem;
   position: relative;
 }
+
+/* Large icon centered in the fallback box (no preview available) */
+.fallback-center-icon {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+.glass-file-card:hover .fallback-center-icon {
+  transform: scale(1.1);
+  filter: drop-shadow(0 6px 20px rgba(79, 172, 254, 0.5));
+}
+
+/* ── Always-visible file-type icon badge ── */
+/* Sits in the bottom-left corner of every card preview area */
+.card-type-icon-badge {
+  position: absolute;
+  bottom: 0.6rem;
+  left: 0.6rem;
+  z-index: 5;
+  background: rgba(5, 8, 18, 0.72);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 5px 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s ease, background 0.25s ease;
+}
+
+.glass-file-card:hover .card-type-icon-badge {
+  transform: scale(1.1);
+  background: rgba(5, 8, 18, 0.88);
+  border-color: rgba(79, 172, 254, 0.35);
+}
+
+.card-type-icon-badge-img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  display: block;
+}
+
+
 
 .card-fallback-doc-box::after {
   content: 'Click to Preview';
@@ -924,9 +971,22 @@ html, body {
   transition: all 0.3s ease;
 }
 
+/* Override the generic .card-media-view-box img cover rule for asset icons */
+.asset-file-icon {
+  width: 72px !important;
+  height: 72px !important;
+  object-fit: contain !important;
+  transform: none !important;
+}
+
 .glass-file-card:hover .fallback-type-icon-img {
   transform: scale(1.1);
   filter: drop-shadow(0 4px 15px var(--primary-glow));
+}
+
+.glass-file-card:hover .asset-file-icon {
+  transform: scale(1.12) !important;
+  filter: drop-shadow(0 6px 18px var(--primary-glow));
 }
 
 .fallback-badge-info-label {
@@ -1018,15 +1078,19 @@ html, body {
   flex: 1;
 }
 
-.file-type-pill-label {
-  font-size: 0.65rem;
-  font-weight: 700;
-  color: var(--primary);
-  text-transform: uppercase;
-  background: rgba(79, 172, 254, 0.12);
-  padding: 2px 6px;
-  border-radius: 4px;
-  border: 1px solid rgba(79, 172, 254, 0.2);
+/* File type icon pill — replaces the old text label in the card footer */
+.file-type-icon-pill {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
+  transition: transform 0.25s ease, filter 0.25s ease;
+}
+
+.glass-file-card:hover .file-type-icon-pill {
+  transform: scale(1.15);
+  filter: drop-shadow(0 3px 10px rgba(79, 172, 254, 0.45));
 }
 
 .file-details-meta-row {

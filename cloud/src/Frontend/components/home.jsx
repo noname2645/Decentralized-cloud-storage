@@ -45,6 +45,14 @@ import {
   Users,
 } from "lucide-react";
 
+// ── Asset Icons ──────────────────────────────────────────────────────────────
+import pdfIcon from "../assets/Images/pdf.png";
+import jpgIcon from "../assets/Images/jpg.png";
+import jpegIcon from "../assets/Images/jpeg.png";
+import pngIcon from "../assets/Images/png-file.png";
+import audioIcon from "../assets/Images/audio.png";
+import folderIcon from "../assets/Images/folder.png";
+
 const Home = () => {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -195,7 +203,8 @@ const Home = () => {
   // Re-sync wallet on page load if already connected
   useEffect(() => {
     if (window.ethereum) {
-      const disconnectedByUser = localStorage.getItem("walletDisconnectedByUser") === "true";
+      const disconnectedByUser =
+        localStorage.getItem("walletDisconnectedByUser") === "true";
       if (!disconnectedByUser) {
         window.ethereum.request({ method: "eth_accounts" }).then((accounts) => {
           if (accounts.length > 0) setWalletAddress(accounts[0]);
@@ -214,7 +223,7 @@ const Home = () => {
           localStorage.setItem("walletDisconnectedByUser", "true");
         }
       };
-      
+
       const handleChainChanged = (chainId) => {
         setCurrentChainId(chainId);
       };
@@ -224,7 +233,10 @@ const Home = () => {
 
       return () => {
         if (window.ethereum.removeListener) {
-          window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
+          window.ethereum.removeListener(
+            "accountsChanged",
+            handleAccountsChanged,
+          );
           window.ethereum.removeListener("chainChanged", handleChainChanged);
         }
       };
@@ -456,7 +468,9 @@ const Home = () => {
           try {
             await switchNetwork();
           } catch (switchErr) {
-            throw new Error("Please switch to Sepolia Testnet in MetaMask before uploading.");
+            throw new Error(
+              "Please switch to Sepolia Testnet in MetaMask before uploading.",
+            );
           }
         }
         try {
@@ -582,8 +596,13 @@ const Home = () => {
           try {
             await switchNetwork();
           } catch (switchErr) {
-            console.warn("Could not switch to Sepolia for deleting file:", switchErr.message);
-            throw new Error("Please switch to Sepolia Testnet in MetaMask to execute the on-chain delete.");
+            console.warn(
+              "Could not switch to Sepolia for deleting file:",
+              switchErr.message,
+            );
+            throw new Error(
+              "Please switch to Sepolia Testnet in MetaMask to execute the on-chain delete.",
+            );
           }
         }
         try {
@@ -700,13 +719,35 @@ const Home = () => {
     (f) => getFileCategory(f.type) === "Others",
   ).length;
 
+  // Returns the specific asset icon <img> based on exact mime type, falling
+  // back to a lucide icon for types with no dedicated asset.
   const getFileIconComponent = (fileType) => {
+    if (fileType === "application/pdf")
+      return (
+        <img src={pdfIcon} alt="PDF" className="fallback-type-icon-img asset-file-icon" />
+      );
+    if (fileType === "image/png")
+      return (
+        <img src={pngIcon} alt="PNG" className="fallback-type-icon-img asset-file-icon" />
+      );
+    if (fileType === "image/jpg")
+      return (
+        <img src={jpgIcon} alt="JPG" className="fallback-type-icon-img asset-file-icon" />
+      );
+    if (fileType === "image/jpeg")
+      return (
+        <img src={jpegIcon} alt="JPEG" className="fallback-type-icon-img asset-file-icon" />
+      );
     if (fileType?.startsWith("image/"))
       return (
         <ImageIcon
           className="fallback-type-icon-img"
           style={{ color: "#38bdf8" }}
         />
+      );
+    if (fileType?.startsWith("audio/"))
+      return (
+        <img src={audioIcon} alt="Audio" className="fallback-type-icon-img asset-file-icon" />
       );
     if (fileType?.startsWith("video/"))
       return (
@@ -715,19 +756,43 @@ const Home = () => {
           style={{ color: "#a855f7" }}
         />
       );
-    if (fileType === "application/pdf")
-      return (
-        <FileText
-          className="fallback-type-icon-img"
-          style={{ color: "#ef4444" }}
-        />
-      );
+    // Generic fallback
     return (
-      <FileIcon
-        className="fallback-type-icon-img"
-        style={{ color: "#64748b" }}
-      />
+      <img src={folderIcon} alt="File" className="fallback-type-icon-img asset-file-icon" />
     );
+  };
+
+  // Returns a human-readable label for the file type pill
+  const getFileTypeLabel = (fileType) => {
+    if (!fileType) return "File";
+    const map = {
+      "application/pdf": "PDF",
+      "image/png": "PNG",
+      "image/jpg": "JPG",
+      "image/jpeg": "JPEG",
+      "image/gif": "GIF",
+      "image/webp": "WEBP",
+      "video/mp4": "MP4",
+      "video/quicktime": "MOV",
+      "audio/mpeg": "MP3",
+      "audio/wav": "WAV",
+      "audio/ogg": "OGG",
+      "text/plain": "TXT",
+    };
+    if (map[fileType]) return map[fileType];
+    const sub = fileType.split("/")[1];
+    return sub ? sub.toUpperCase() : "FILE";
+  };
+
+  // Returns the imported PNG icon src for use as an overlay badge on every card
+  const getFileTypeIconSrc = (fileType) => {
+    if (fileType === "application/pdf") return pdfIcon;
+    if (fileType === "image/png")       return pngIcon;
+    if (fileType === "image/jpg")       return jpgIcon;
+    if (fileType === "image/jpeg")      return jpegIcon;
+    if (fileType?.startsWith("audio/")) return audioIcon;
+    // images without a specific icon, videos, and everything else
+    return folderIcon;
   };
 
   // Welcome Modal Component
@@ -952,29 +1017,47 @@ const Home = () => {
     if (!showWalletModal || !walletAddress) return null;
     const isWrongNetwork = currentChainId !== SEPOLIA_CHAIN_ID;
     return (
-      <div className="welcome-modal-overlay" onClick={() => setShowWalletModal(false)}>
-        <div className="welcome-modal wallet-info-modal-box" onClick={(e) => e.stopPropagation()}>
-          <button className="close-modal-round-btn modal-close-pos" onClick={() => setShowWalletModal(false)}>×</button>
+      <div
+        className="welcome-modal-overlay"
+        onClick={() => setShowWalletModal(false)}
+      >
+        <div
+          className="welcome-modal wallet-info-modal-box"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            className="close-modal-round-btn modal-close-pos"
+            onClick={() => setShowWalletModal(false)}
+          >
+            ×
+          </button>
           <div className="welcome-icon-box wallet-icon-glow">
             <Wallet size={32} />
           </div>
           <h2 className="welcome-title-glow">
             {isWrongNetwork ? "Network Warning" : "Connected Wallet"}
           </h2>
-          
+
           <div className="wallet-details-container">
             <div className="wallet-detail-row">
               <span className="wallet-detail-label">Network</span>
               {isWrongNetwork ? (
-                <span className="wallet-detail-value text-error">Wrong Network (Expected Sepolia)</span>
+                <span className="wallet-detail-value text-error">
+                  Wrong Network (Expected Sepolia)
+                </span>
               ) : (
-                <span className="wallet-detail-value text-primary">Sepolia Testnet</span>
+                <span className="wallet-detail-value text-primary">
+                  Sepolia Testnet
+                </span>
               )}
             </div>
-            
+
             <div className="wallet-detail-row">
               <span className="wallet-detail-label">Account Address</span>
-              <span className="wallet-detail-value address-hex" title={walletAddress}>
+              <span
+                className="wallet-detail-value address-hex"
+                title={walletAddress}
+              >
                 {walletAddress}
               </span>
             </div>
@@ -982,7 +1065,7 @@ const Home = () => {
 
           <div className="wallet-modal-actions">
             {isWrongNetwork ? (
-              <button 
+              <button
                 className="wallet-action-btn-primary"
                 onClick={switchNetwork}
               >
@@ -990,7 +1073,7 @@ const Home = () => {
               </button>
             ) : (
               <>
-                <button 
+                <button
                   className="wallet-action-btn-secondary"
                   onClick={() => {
                     navigator.clipboard.writeText(walletAddress);
@@ -1000,16 +1083,16 @@ const Home = () => {
                   <Copy size={14} />
                   <span>Copy Address</span>
                 </button>
-                
-                <button 
+
+                <button
                   className="wallet-action-btn-secondary"
                   onClick={switchAccount}
                 >
                   <Users size={14} />
                   <span>Switch Account</span>
                 </button>
-                
-                <a 
+
+                <a
                   href={`https://sepolia.etherscan.io/address/${walletAddress}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -1023,7 +1106,7 @@ const Home = () => {
             )}
           </div>
 
-          <button 
+          <button
             className="wallet-disconnect-action-btn"
             onClick={() => {
               setWalletAddress(null);
@@ -1048,7 +1131,9 @@ const Home = () => {
           </div>
           <h2 className="wallet-lock-title">Web3 Wallet Connection Required</h2>
           <p className="wallet-lock-desc">
-            Nebula Vault uses client-side cryptography and decentralized blockchain ledger indexing. Connect your MetaMask wallet to decrypt, view, and manage your secure drive.
+            Nebula Vault uses client-side cryptography and decentralized
+            blockchain ledger indexing. Connect your MetaMask wallet to decrypt,
+            view, and manage your secure drive.
           </p>
           <button
             className="wallet-lock-connect-btn"
@@ -1056,9 +1141,13 @@ const Home = () => {
             disabled={walletConnecting}
           >
             <Wallet size={20} />
-            <span>{walletConnecting ? "Authorizing MetaMask..." : "Connect MetaMask Wallet"}</span>
+            <span>
+              {walletConnecting
+                ? "Authorizing MetaMask..."
+                : "Connect MetaMask Wallet"}
+            </span>
           </button>
-          
+
           <div className="wallet-lock-requirements">
             <span className="req-item">✓ AES-256 Encryption</span>
             <span className="req-item">✓ Decentralized IPFS Storage</span>
@@ -1354,9 +1443,13 @@ const Home = () => {
                         <PDFThumbnail pdfBytes={cachedPdfBytes} width={280} />
                       ) : (
                         <div className="card-fallback-doc-box">
-                          {getFileIconComponent(file.type)}
+                          <img
+                            src={getFileTypeIconSrc(file.type)}
+                            alt={getFileTypeLabel(file.type)}
+                            className="fallback-center-icon"
+                          />
                           <span className="fallback-badge-info-label">
-                            {file.type?.split("/")[1]?.toUpperCase() || "BIN"}
+                            {getFileTypeLabel(file.type)}
                           </span>
                         </div>
                       )}
@@ -1380,9 +1473,12 @@ const Home = () => {
                         >
                           {file.fileName}
                         </h4>
-                        <span className="file-type-pill-label">
-                          {file.type?.split("/")[0] || "File"}
-                        </span>
+                        <img
+                          src={getFileTypeIconSrc(file.type)}
+                          alt={getFileTypeLabel(file.type)}
+                          title={getFileTypeLabel(file.type)}
+                          className="file-type-icon-pill"
+                        />
                       </div>
 
                       <div className="file-details-meta-row">

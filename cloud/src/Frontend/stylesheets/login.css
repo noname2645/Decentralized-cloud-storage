@@ -182,10 +182,10 @@
 /* CTA submit Button */
 .register-submit {
   width: 100%;
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  background:  #1E90FF;
   border: none;
   border-radius: 12px;
-  color: #fff;
+  color: #000000;
   font-family: var(--font-sans);
   font-weight: 700;
   font-size: 0.95rem;
@@ -195,7 +195,6 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  box-shadow: 0 4px 15px var(--primary-glow);
   transition: all 0.25s ease;
 }
 
